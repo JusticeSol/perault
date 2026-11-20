@@ -13,6 +13,8 @@
   },
   "include": [
     "src",
-    "../packages/aevum/src"
+    "../packages/aevum/src",
+    "../packages/perault-sdk/src",
+    "../packages/x402/src"
   ]
 }

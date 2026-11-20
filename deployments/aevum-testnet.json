@@ -81,5 +81,57 @@
         }
       ]
     }
+  ],
+  "relayer": "0x8799b06CF2e91C122E1BeBb2153B1a3145404b88",
+  "demoStore": "0xF11391fcB1e3dEC86D6016962E883cc7e1ad7ed5",
+  "liveRuns": [
+    {
+      "date": "2026-11-20",
+      "description": "Full x402 loop: agent (createPayingFetch) -> demo store (createPaywall) -> facilitator (relayer pays gas) -> SpendVault -> store",
+      "sessionId": "0xeabb37ba92b394de2123b155bca719aa8c53a8ccffcdae4c811fa98afe78c8aa",
+      "owner": "0x3a3d2Ba50d6C94081BC0e53a8D37418e75Bf2Bdc",
+      "agent": "0x45345Cb9B3D4C8f2F6acfC93066CCFdc06B4Dc52",
+      "caps": {
+        "perTx": "4.00",
+        "daily": "5.00",
+        "total": "5.00",
+        "expiryDays": 7
+      },
+      "merchants": [
+        "0xF11391fcB1e3dEC86D6016962E883cc7e1ad7ed5"
+      ],
+      "openSessionTxs": {
+        "approve": "0x721ae250aa4efb071867c9577ff81ca29258765c7382e36f2ede27415e5cef31",
+        "deposit": "0xcf754da3e434b03787ce75d643ba834189bedff8b34fa5e98b75586a25ae2ad8",
+        "openSession": "0xaf3bac2cd5002d6857e7220ae85bde73c2583fba37db56cc19e158c096238e65",
+        "block": 3671877
+      },
+      "purchases": [
+        {
+          "sku": "hoodie-black-M",
+          "price": "3.50",
+          "result": "paid",
+          "tx": "0x792400ab5b8cd30eedebc506e6c9bc0fb1e2abbce57ed751a020ab5ebd4806f5",
+          "block": 3672025
+        },
+        {
+          "sku": "jacket-denim-L",
+          "price": "6.00",
+          "result": "refused before signing: PriceTooHigh (agent ceiling 4.00)"
+        },
+        {
+          "sku": "socks-white",
+          "price": "1.00",
+          "result": "paid",
+          "tx": "0x463c07134309216fca54b0ed1e668c902e0516e219ba97fd94046c4dfa7e2248",
+          "block": 3672035
+        }
+      ],
+      "after": {
+        "storeBalance": "4.50",
+        "ownerVaultBalance": "0.50",
+        "agentGas": "0"
+      }
+    }
   ]
 }
