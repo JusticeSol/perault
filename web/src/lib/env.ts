@@ -1,5 +1,6 @@
 import { isAddress, type Address, type Chain } from "viem";
 import { aevumFork, aevumTestnet, localAnvil } from "@aevum-kit/aevum";
+import { PERAULT_DEPLOYMENTS } from "@perault/sdk";
 
 export type NetworkKey = "aevum" | "fork" | "local";
 
@@ -10,6 +11,8 @@ export interface Network {
   chain: Chain;
   /** Your Checkout on this network, if you deployed one. */
   checkout?: Address;
+  /** Perault SpendVault on this network. Aevum: the official deployment unless overridden. */
+  vault?: Address;
   /** Only scan events from this block onward on the Activity page. */
   deployBlock?: bigint;
   /** Explorer links only make sense on the real testnet. */
@@ -26,6 +29,7 @@ const all: Record<NetworkKey, Network> = {
     label: "Aevum testnet",
     chain: aevumTestnet,
     checkout: address(process.env.NEXT_PUBLIC_CHECKOUT_AEVUM),
+    vault: address(process.env.NEXT_PUBLIC_VAULT_AEVUM) ?? PERAULT_DEPLOYMENTS[44005].vault,
     deployBlock: block(process.env.NEXT_PUBLIC_DEPLOY_BLOCK_AEVUM),
     hasExplorer: true,
   },
@@ -34,6 +38,7 @@ const all: Record<NetworkKey, Network> = {
     label: "Local fork",
     chain: aevumFork,
     checkout: address(process.env.NEXT_PUBLIC_CHECKOUT_FORK),
+    vault: address(process.env.NEXT_PUBLIC_VAULT_FORK),
     deployBlock: block(process.env.NEXT_PUBLIC_DEPLOY_BLOCK_FORK),
     hasExplorer: false,
   },
@@ -42,6 +47,7 @@ const all: Record<NetworkKey, Network> = {
     label: "Local anvil",
     chain: localAnvil,
     checkout: address(process.env.NEXT_PUBLIC_CHECKOUT_LOCAL),
+    vault: address(process.env.NEXT_PUBLIC_VAULT_LOCAL),
     deployBlock: undefined,
     hasExplorer: false,
   },

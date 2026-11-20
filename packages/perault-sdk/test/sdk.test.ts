@@ -22,6 +22,7 @@ import {
   hashIntent,
   intentFromJson,
   intentToJson,
+  sessionIdOf,
   spendVaultAbi,
   toOrderId,
 } from "../src/index";
@@ -253,5 +254,41 @@ describe("full flow against SpendVault", () => {
     await o.revokeAll();
     assert.equal(await o.isActive(s1.sessionId), false);
     assert.equal(await o.isActive(s2.sessionId), false);
+  });
+});
+
+describe("session discovery (dashboard reads)", () => {
+  test("sessionIdOf matches the ids the contract assigned; listSessions finds them all, newest first", async () => {
+    const o = clientFor(owner);
+    const count = await pub.readContract({ address: vault, abi: spendVaultAbi, functionName: "sessionCount", args: [owner.address] });
+    const s = await o.openSession({ agent: agent.address, perTxCap: 1n, dailyCap: 1n, totalCap: 1n, expiresInSeconds: 600, merchants: [merchant] });
+    assert.equal(sessionIdOf(31337, vault, owner.address, count), s.sessionId);
+
+    const list = await o.listSessions(owner.address);
+    assert.equal(list.length, Number(count) + 1);
+    assert.equal(list[0].sessionId, s.sessionId, "newest first");
+    assert.equal(list[0].index, Number(count));
+    assert.equal(list[0].session.agent, agent.address);
+    assert.equal(list[0].budget.active, true);
+    assert.deepEqual(await o.listSessions(attacker), []);
+  });
+
+  test("getMerchants reflects adds and removals", async () => {
+    const o = clientFor(owner);
+    const shop2 = "0x0000000000000000000000000000000000005410" as Address;
+    const { sessionId } = await o.openSession({
+      agent: agent.address, perTxCap: 1n, dailyCap: 1n, totalCap: 1n, expiresInSeconds: 600, merchants: [merchant, shop2],
+    });
+    assert.deepEqual((await o.getMerchants(sessionId, { fromBlock: 0n })).sort(), [merchant, shop2].sort());
+    await o.setMerchant(sessionId, merchant, false);
+    assert.deepEqual(await o.getMerchants(sessionId, { fromBlock: 0n }), [shop2]);
+  });
+
+  test("getPayments accepts a list of session ids", async () => {
+    const o = clientFor(owner);
+    const ids = (await o.listSessions(owner.address)).map((s) => s.sessionId);
+    const all = await o.getPayments({ fromBlock: 0n, sessionId: ids });
+    assert.ok(all.length >= 1);
+    assert.ok(all.every((p) => ids.includes(p.sessionId!)));
   });
 });

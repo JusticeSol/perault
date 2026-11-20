@@ -1,8 +1,12 @@
 import {
+  encodeAbiParameters,
+  keccak256,
   parseEventLogs,
   type Account,
   type Address,
   type Chain,
+  type ContractFunctionName,
+  type ContractFunctionReturnType,
   type Hash,
   type Hex,
   type PublicClient,
@@ -23,6 +27,48 @@ import {
   type IntentSigner,
   type PaymentIntent,
 } from "./intent";
+
+type VaultRead = ContractFunctionName<typeof spendVaultAbi, "view" | "pure">;
+type VaultReturn<F extends VaultRead> = ContractFunctionReturnType<typeof spendVaultAbi, "view" | "pure", F>;
+
+/**
+ * Session ids are deterministic: keccak256(abi.encode(chainId, vault, owner, index)), where index
+ * counts the owner's sessions from 0. Mirrors `SpendVault.openSession`.
+ */
+export function sessionIdOf(chainId: number, vault: Address, owner: Address, index: bigint): Hex {
+  return keccak256(
+    encodeAbiParameters(
+      [{ type: "uint256" }, { type: "address" }, { type: "address" }, { type: "uint256" }],
+      [BigInt(chainId), vault, owner, index],
+    ),
+  );
+}
+
+/** Runs `fetch` over [from, to] in ≤1,000-block chunks, a few at a time, results in block order. */
+async function scanChunks<T>(
+  from: bigint,
+  to: bigint,
+  concurrency: number | undefined,
+  fetch: (fromBlock: bigint, toBlock: bigint) => Promise<T[]>,
+): Promise<T[]> {
+  const ranges: [bigint, bigint][] = [];
+  for (let start = from; start <= to; start += MAX_LOG_RANGE) {
+    ranges.push([start, start + MAX_LOG_RANGE - 1n < to ? start + MAX_LOG_RANGE - 1n : to]);
+  }
+  // A few requests at a time: fast enough for interactive use, gentle on the public RPC.
+  const workers = Math.min(Math.max(1, concurrency ?? 6), ranges.length);
+  const results: T[][] = new Array(ranges.length);
+  let next = 0;
+  await Promise.all(
+    Array.from({ length: workers }, async () => {
+      while (next < ranges.length) {
+        const i = next++;
+        results[i] = await fetch(ranges[i][0], ranges[i][1]);
+      }
+    }),
+  );
+  return results.flat();
+}
 
 const erc20Abi = [
   {
@@ -172,32 +218,51 @@ export class PeraultClient {
     return { ok: false, code, message: code === "Unknown" ? `Unknown error ${selector}` : VAULT_ERROR_MESSAGES[code] };
   }
 
-  /** Settled payments, scanning in ≤1,000-block chunks (Aevum's eth_getLogs limit). */
+  /**
+   * Settled payments, scanning in ≤1,000-block chunks (Aevum's eth_getLogs limit).
+   * `sessionId` may be a list: payments by any of them (e.g. all of an owner's sessions).
+   */
   async getPayments(
-    opts: { fromBlock?: bigint; toBlock?: bigint; sessionId?: Hex; merchant?: Address; orderId?: Hex; concurrency?: number } = {},
+    opts: { fromBlock?: bigint; toBlock?: bigint; sessionId?: Hex | Hex[]; merchant?: Address; orderId?: Hex; concurrency?: number } = {},
   ) {
-    const to = opts.toBlock ?? (await this.publicClient.getBlockNumber({ cacheTime: 0 }));
-    const from = opts.fromBlock ?? PERAULT_DEPLOYMENTS[this.chainId]?.deployBlock ?? 0n;
+    const { from, to } = await this.range(opts);
     const args = { sessionId: opts.sessionId, merchant: opts.merchant, orderId: opts.orderId };
-    const ranges: [bigint, bigint][] = [];
-    for (let start = from; start <= to; start += MAX_LOG_RANGE) {
-      ranges.push([start, start + MAX_LOG_RANGE - 1n < to ? start + MAX_LOG_RANGE - 1n : to]);
-    }
-    const fetchRange = ([fromBlock, toBlock]: [bigint, bigint]) =>
-      this.publicClient.getContractEvents({ address: this.vault, abi: spendVaultAbi, eventName: "Paid", args, fromBlock, toBlock });
-    // A few requests at a time: fast enough for interactive use, gentle on the public RPC.
-    const concurrency = Math.max(1, opts.concurrency ?? 6);
-    const results: Awaited<ReturnType<typeof fetchRange>>[] = new Array(ranges.length);
-    let next = 0;
-    await Promise.all(
-      Array.from({ length: Math.min(concurrency, ranges.length) }, async () => {
-        while (next < ranges.length) {
-          const i = next++;
-          results[i] = await fetchRange(ranges[i]);
-        }
+    const logs = await scanChunks(from, to, opts.concurrency, (fromBlock, toBlock) =>
+      this.publicClient.getContractEvents({ address: this.vault, abi: spendVaultAbi, eventName: "Paid", args, fromBlock, toBlock }),
+    );
+    return logs.map((l) => ({ ...l.args, transactionHash: l.transactionHash, blockNumber: l.blockNumber }));
+  }
+
+  /**
+   * Merchants currently allowed for a session: replays its MerchantSet events in the range, then
+   * confirms each against contract state (so the answer is never stale within the range).
+   */
+  async getMerchants(sessionId: Hex, opts: { fromBlock?: bigint; toBlock?: bigint; concurrency?: number } = {}): Promise<Address[]> {
+    const { from, to } = await this.range(opts);
+    const logs = await scanChunks(from, to, opts.concurrency, (fromBlock, toBlock) =>
+      this.publicClient.getContractEvents({ address: this.vault, abi: spendVaultAbi, eventName: "MerchantSet", args: { sessionId }, fromBlock, toBlock }),
+    );
+    const seen = [...new Set(logs.map((l) => l.args.merchant!).filter(Boolean))];
+    const allowed = await Promise.all(seen.map((m) => this.isMerchantAllowed(sessionId, m)));
+    return seen.filter((_, i) => allowed[i]);
+  }
+
+  /** Every session `owner` has opened, newest first, with live status and budget. No log scan needed. */
+  async listSessions(owner: Address) {
+    const count: bigint = await this.read("sessionCount", [owner]);
+    const ids = Array.from({ length: Number(count) }, (_, i) => sessionIdOf(this.chainId, this.vault, owner, BigInt(i))).reverse();
+    return Promise.all(
+      ids.map(async (sessionId, i) => {
+        const [session, budget] = await Promise.all([this.getSession(sessionId), this.getBudget(sessionId)]);
+        return { sessionId, index: Number(count) - 1 - i, session, budget };
       }),
     );
-    return results.flat().map((l) => ({ ...l.args, transactionHash: l.transactionHash, blockNumber: l.blockNumber }));
+  }
+
+  private async range(opts: { fromBlock?: bigint; toBlock?: bigint }) {
+    const to = opts.toBlock ?? (await this.publicClient.getBlockNumber({ cacheTime: 0 }));
+    const from = opts.fromBlock ?? PERAULT_DEPLOYMENTS[this.chainId]?.deployBlock ?? 0n;
+    return { from, to };
   }
 
   // ------------------------------------------------------------------ agent
@@ -321,12 +386,11 @@ export class PeraultClient {
     return acc;
   }
 
-  // viem's generics can't follow a function name chosen at runtime; the public methods above
-  // pin the argument types, so the loose typing stays inside this file.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private read<T = any>(functionName: string, args: readonly unknown[]): Promise<T> {
+  // Return types come from the ABI, so every read method is precisely typed for callers. Only the
+  // argument plumbing is loose here; the public methods above pin the argument types.
+  private read<F extends VaultRead>(functionName: F, args: readonly unknown[]): Promise<VaultReturn<F>> {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return this.publicClient.readContract({ address: this.vault, abi: spendVaultAbi, functionName, args } as any) as Promise<T>;
+    return this.publicClient.readContract({ address: this.vault, abi: spendVaultAbi, functionName, args } as any) as Promise<VaultReturn<F>>;
   }
 
   private send(functionName: string, args: readonly unknown[]): Promise<TxResult> {
