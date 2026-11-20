@@ -174,25 +174,30 @@ export class PeraultClient {
 
   /** Settled payments, scanning in ≤1,000-block chunks (Aevum's eth_getLogs limit). */
   async getPayments(
-    opts: { fromBlock?: bigint; toBlock?: bigint; sessionId?: Hex; merchant?: Address; orderId?: Hex } = {},
+    opts: { fromBlock?: bigint; toBlock?: bigint; sessionId?: Hex; merchant?: Address; orderId?: Hex; concurrency?: number } = {},
   ) {
     const to = opts.toBlock ?? (await this.publicClient.getBlockNumber({ cacheTime: 0 }));
     const from = opts.fromBlock ?? PERAULT_DEPLOYMENTS[this.chainId]?.deployBlock ?? 0n;
     const args = { sessionId: opts.sessionId, merchant: opts.merchant, orderId: opts.orderId };
-    const out = [];
+    const ranges: [bigint, bigint][] = [];
     for (let start = from; start <= to; start += MAX_LOG_RANGE) {
-      const end = start + MAX_LOG_RANGE - 1n < to ? start + MAX_LOG_RANGE - 1n : to;
-      const logs = await this.publicClient.getContractEvents({
-        address: this.vault,
-        abi: spendVaultAbi,
-        eventName: "Paid",
-        args,
-        fromBlock: start,
-        toBlock: end,
-      });
-      out.push(...logs);
+      ranges.push([start, start + MAX_LOG_RANGE - 1n < to ? start + MAX_LOG_RANGE - 1n : to]);
     }
-    return out.map((l) => ({ ...l.args, transactionHash: l.transactionHash, blockNumber: l.blockNumber }));
+    const fetchRange = ([fromBlock, toBlock]: [bigint, bigint]) =>
+      this.publicClient.getContractEvents({ address: this.vault, abi: spendVaultAbi, eventName: "Paid", args, fromBlock, toBlock });
+    // A few requests at a time: fast enough for interactive use, gentle on the public RPC.
+    const concurrency = Math.max(1, opts.concurrency ?? 6);
+    const results: Awaited<ReturnType<typeof fetchRange>>[] = new Array(ranges.length);
+    let next = 0;
+    await Promise.all(
+      Array.from({ length: Math.min(concurrency, ranges.length) }, async () => {
+        while (next < ranges.length) {
+          const i = next++;
+          results[i] = await fetchRange(ranges[i]);
+        }
+      }),
+    );
+    return results.flat().map((l) => ({ ...l.args, transactionHash: l.transactionHash, blockNumber: l.blockNumber }));
   }
 
   // ------------------------------------------------------------------ agent

@@ -12,6 +12,10 @@ import { exactTypedData } from "./exact";
 import { AEVUM_TESTNET, matchesNetwork, type NetworkConfig } from "./networks";
 import { X402_VERSION, type PaymentPayload, type PaymentRequiredResponse, type PaymentRequirements, type SettleResponse } from "./types";
 
+// Re-exported so agent code can import everything from "@perault/x402/client" (no node:http).
+export { AEVUM_TESTNET, matchesNetwork, type NetworkConfig } from "./networks";
+export type { PaymentRequiredResponse, PaymentRequirements, SettleResponse } from "./types";
+
 export type PaymentErrorCode =
   | "NoAcceptableOption"
   | "PriceTooHigh"
