@@ -18,13 +18,28 @@ import {SpendVault} from "../src/SpendVault.sol";
 ///   Needs AGENT_PRIVATE_KEY in contracts/.env (a throwaway key; it never holds funds).
 ///   forge script script/Smoke.s.sol --rpc-url https://rpc-test.qday.info --broadcast --legacy --account aevum-deployer
 contract Smoke is Script {
-    SpendVault constant VAULT = SpendVault(0x103Cd22F2E6d66FD9C06dDD468Fa13DFCaD8Fe81);
+    SpendVault VAULT;
 
     uint256 agentKey;
     bytes32 sid;
     address merchant;
 
+    /// @dev VAULT env wins; otherwise the vault from the latest DeploySpendVault run on this chain.
+    function _vault() internal view returns (SpendVault) {
+        address v = vm.envOr("VAULT", address(0));
+        if (v == address(0)) {
+            string memory path = string.concat(
+                vm.projectRoot(), "/broadcast/DeploySpendVault.s.sol/", vm.toString(block.chainid), "/run-latest.json"
+            );
+            v = vm.parseJsonAddress(vm.readFile(path), ".transactions[0].contractAddress");
+        }
+        require(v.code.length > 0, "no SpendVault at that address");
+        return SpendVault(v);
+    }
+
     function run() external {
+        VAULT = _vault();
+        console.log("vault     ", address(VAULT));
         agentKey = vm.envUint("AGENT_PRIVATE_KEY");
         address agent = vm.addr(agentKey);
         IERC20 token = VAULT.token();

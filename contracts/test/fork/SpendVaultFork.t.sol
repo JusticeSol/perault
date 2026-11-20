@@ -10,7 +10,7 @@ interface ITUSD8f is IERC20 {
     function DOMAIN_SEPARATOR() external view returns (bytes32);
 }
 
-/// @notice Full CapVault flow against the REAL tUSD8 on a local fork of Aevum testnet.
+/// @notice Full Perault flow against the REAL tUSD8 on a local fork of Aevum testnet.
 ///         Run with: make test-fork
 contract SpendVaultForkTest is Test {
     ITUSD8f constant TUSD8 = ITUSD8f(0x456569838f1d43009A91ebA4263147Afd7233483);

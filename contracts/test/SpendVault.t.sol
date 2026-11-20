@@ -503,7 +503,7 @@ contract SpendVaultTest is Test {
         bytes32 domain = keccak256(
             abi.encode(
                 keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
-                keccak256("CapVault"),
+                keccak256("Perault"),
                 keccak256("1"),
                 block.chainid,
                 address(vault)

@@ -22,7 +22,7 @@ interface IERC3009Receive {
     ) external;
 }
 
-/// @title SpendVault (CapVault)
+/// @title SpendVault (Perault)
 /// @notice Spending budgets for AI agents, enforced on-chain.
 ///
 ///         An owner deposits tUSD8 and opens a *session* for an agent key. The session carries
@@ -159,7 +159,7 @@ contract SpendVault is EIP712, ReentrancyGuard {
     error OverTotal();
     error InsufficientBalance();
 
-    constructor(IERC20 token_) EIP712("CapVault", "1") {
+    constructor(IERC20 token_) EIP712("Perault", "1") {
         if (address(token_) == address(0)) revert ZeroAddress();
         token = token_;
     }

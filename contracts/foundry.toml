@@ -8,6 +8,8 @@ solc_version = "0.8.24"
 evm_version = "shanghai"
 optimizer = true
 optimizer_runs = 200
+# Smoke.s.sol reads the latest deploy log to find the vault address.
+fs_permissions = [{ access = "read", path = "./broadcast" }]
 remappings = [
   "@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/",
   "forge-std/=lib/forge-std/src/",

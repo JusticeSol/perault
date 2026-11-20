@@ -6,7 +6,7 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SpendVault} from "../src/SpendVault.sol";
 import {MockUSD8} from "../src/mocks/MockUSD8.sol";
 
-/// @notice Deploys SpendVault (CapVault).
+/// @notice Deploys SpendVault (Perault).
 ///   - Aevum testnet and `make fork`: uses the real tUSD8.
 ///   - `make anvil` (chain 31337) only: deploys MockUSD8 first and mints 1,000 to the deployer.
 ///
