@@ -1,0 +1,42 @@
+{
+  "chainId": 44005,
+  "rpc": "https://rpc-test.qday.info",
+  "explorer": "https://explorer-test.qday.info",
+  "tUSD8": "0x456569838f1d43009A91ebA4263147Afd7233483",
+  "SpendVault": {
+    "address": "0x103Cd22F2E6d66FD9C06dDD468Fa13DFCaD8Fe81",
+    "deployTx": "0x4d2ab829de2edd127a6ac9fdca3ed509110d8338b3456e00587b54475fe870b6",
+    "block": 3588316,
+    "deployer": "0x3a3d2Ba50d6C94081BC0e53a8D37418e75Bf2Bdc",
+    "eip712Domain": {
+      "name": "CapVault",
+      "version": "1"
+    }
+  },
+  "smokeRuns": [
+    {
+      "date": "2026-11-19",
+      "block": 3589090,
+      "script": "contracts/script/Smoke.s.sol",
+      "owner": "0x3a3d2Ba50d6C94081BC0e53a8D37418e75Bf2Bdc",
+      "agent": "0x45345Cb9B3D4C8f2F6acfC93066CCFdc06B4Dc52",
+      "sessionId": "0x982ce55b0965c9a02b5b97deb515c78d4782185720603a3dc33a7af2e5fa8e56",
+      "txs": {
+        "approve": "0xcdf5f7890e5849e0c7223a826f1524fd3ac38230d6c34d0e0ebaff7a984728d0",
+        "deposit": "0x497440257ed01b33fcfd70f8ac71f05e4d2e8ae5dc8e331b2d30920ff3240f80",
+        "openSession": "0xb3b120c6a5b0dff5a6d35cb3c2c4ec9ad6162d7b4a155215e515c8756a1246a6",
+        "pay_hoodie_3_50": "0x43b35f81e63199933275e1ec676602d787771c21fe84a3cf4268085f3dc69e74",
+        "revoke": "0x28058b588895e773029925564293decc61236e18fa216aad0165cba5299f4d87",
+        "withdraw": "0x7722b795c35a2c7dcf06b6924cb8bb1a40ac278d6df5ddc5f8d01b39904af9a5"
+      },
+      "previewRejections": {
+        "jacket_6_00": "OverPerTx",
+        "pay_0xBAD": "MerchantNotAllowed",
+        "replay": "NonceUsed",
+        "sameOrderNewNonce": "OrderAlreadyPaid",
+        "socks_1_500001": "OverDaily",
+        "afterRevoke": "Revoked"
+      }
+    }
+  ]
+}

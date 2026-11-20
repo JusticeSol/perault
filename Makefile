@@ -17,7 +17,7 @@ AMOUNT      ?= 100
 # `make fork` runs under its own chain ID so wallets and signatures never mix it up with the real testnet.
 FORK_CHAIN  := 440050
 
-.PHONY: help install build test test-fork check anvil fork deploy-local deploy-fork deploy-aevum mint deal dev
+.PHONY: help install build test test-fork check anvil fork deploy-local deploy-fork deploy-aevum deploy-vault-local deploy-vault-aevum mint deal dev
 
 help: ## Show this list
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  \033[36mmake %-14s\033[0m %s\n", $$1, $$2}'
@@ -62,6 +62,13 @@ deploy-fork: ## Deploy Checkout (real tUSD8) to `make fork`
 deploy-aevum: ## Deploy Checkout to Aevum testnet. Needs ACCOUNT=<keystore name> (see README)
 	@test -n "$(ACCOUNT)" || (echo "Set ACCOUNT=<name>. Create one with: cast wallet import <name> --interactive" && exit 1)
 	cd contracts && forge script script/Deploy.s.sol --rpc-url $(AEVUM_RPC) --broadcast --legacy --account $(ACCOUNT)
+
+deploy-vault-local: ## Deploy MockUSD8 + SpendVault to `make anvil`
+	cd contracts && forge script script/DeploySpendVault.s.sol --rpc-url $(LOCAL_RPC) --broadcast --unlocked --sender $(ANVIL_0)
+
+deploy-vault-aevum: ## Deploy SpendVault to Aevum testnet. Needs ACCOUNT=<keystore name>
+	@test -n "$(ACCOUNT)" || (echo "Set ACCOUNT=<name>. Create one with: cast wallet import <name> --interactive" && exit 1)
+	cd contracts && forge script script/DeploySpendVault.s.sol --rpc-url $(AEVUM_RPC) --broadcast --legacy --account $(ACCOUNT)
 
 mint: ## `make anvil` only: mint AMOUNT MockUSD8 to TO. Needs CHECKOUT=<address>
 	@test -n "$(TO)" -a -n "$(CHECKOUT)" || (echo "Usage: make mint TO=0x... CHECKOUT=0x... [AMOUNT=100]" && exit 1)
