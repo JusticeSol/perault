@@ -1,0 +1,24 @@
+{
+  "name": "@perault/sdk",
+  "version": "0.1.0",
+  "license": "MIT",
+  "type": "module",
+  "description": "Perault SDK: on-chain spending budgets for AI agents on QDay Aevum. Sign capped payment intents, open and revoke sessions, settle payments.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "gen-abi": "node ../../tools/gen-sdk-abi.mjs",
+    "test": "tsx --test test/*.test.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "viem": "^2.57.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "tsx": "4.23.15",
+    "typescript": "5.9.3",
+    "viem": "2.57.12"
+  }
+}

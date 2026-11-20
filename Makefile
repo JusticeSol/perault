@@ -17,7 +17,7 @@ AMOUNT      ?= 100
 # `make fork` runs under its own chain ID so wallets and signatures never mix it up with the real testnet.
 FORK_CHAIN  := 440050
 
-.PHONY: help install build test test-fork check anvil fork deploy-local deploy-fork deploy-aevum deploy-vault-local deploy-vault-aevum mint deal dev
+.PHONY: help install build test test-fork test-sdk check anvil fork deploy-local deploy-fork deploy-aevum deploy-vault-local deploy-vault-aevum mint deal dev
 
 help: ## Show this list
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  \033[36mmake %-14s\033[0m %s\n", $$1, $$2}'
@@ -36,7 +36,11 @@ test: ## Unit tests (local, no network)
 test-fork: ## Tests against the real tUSD8 on a local fork of Aevum (no funds needed)
 	cd contracts && forge test --match-path 'test/fork/*' --fork-url $(AEVUM_RPC) -vv
 
-check: build test test-fork ## Everything CI runs
+test-sdk: ## Perault SDK tests (local anvil, real SpendVault bytecode)
+	node tools/gen-sdk-abi.mjs
+	pnpm --filter @perault/sdk test
+
+check: build test test-fork test-sdk ## Everything CI runs
 	pnpm -r typecheck
 
 anvil: ## Empty local chain (31337) with Aevum's EVM rules
