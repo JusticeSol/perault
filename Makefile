@@ -17,7 +17,7 @@ AMOUNT      ?= 100
 # `make fork` runs under its own chain ID so wallets and signatures never mix it up with the real testnet.
 FORK_CHAIN  := 440050
 
-.PHONY: help install build test test-fork test-sdk check anvil fork deploy-local deploy-fork deploy-aevum deploy-vault-local deploy-vault-aevum mint deal dev
+.PHONY: help install build test test-fork test-sdk test-x402 facilitator check anvil fork deploy-local deploy-fork deploy-aevum deploy-vault-local deploy-vault-aevum mint deal dev
 
 help: ## Show this list
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  \033[36mmake %-14s\033[0m %s\n", $$1, $$2}'
@@ -36,11 +36,17 @@ test: ## Unit tests (local, no network)
 test-fork: ## Tests against the real tUSD8 on a local fork of Aevum (no funds needed)
 	cd contracts && forge test --match-path 'test/fork/*' --fork-url $(AEVUM_RPC) -vv
 
+test-x402: ## Facilitator tests (local anvil, real bytecode, HTTP)
+	pnpm --filter @perault/x402 test
+
+facilitator: ## Run the x402 facilitator (needs packages/x402/.env)
+	pnpm --filter @perault/x402 start
+
 test-sdk: ## Perault SDK tests (local anvil, real SpendVault bytecode)
 	node tools/gen-sdk-abi.mjs
 	pnpm --filter @perault/sdk test
 
-check: build test test-fork test-sdk ## Everything CI runs
+check: build test test-fork test-sdk test-x402 ## Everything CI runs
 	pnpm -r typecheck
 
 anvil: ## Empty local chain (31337) with Aevum's EVM rules
