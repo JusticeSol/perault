@@ -84,6 +84,11 @@ export interface SettleResponse {
   payer?: Address;
   transaction: Hex | "";
   network: string;
+  /**
+   * Perault extension: true when this payment had already been settled (a retry or a replayed
+   * X-PAYMENT header). Nothing new was charged; fulfil the original order, not a new one.
+   */
+  replayed?: boolean;
 }
 
 export interface SupportedResponse {

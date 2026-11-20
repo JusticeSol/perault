@@ -201,13 +201,13 @@ export function createFacilitator(cfg: FacilitatorConfig): Facilitator {
       const res = await vaultClient.pay(b.intent, b.signature);
       if (res.status === "paid") return { success: true, payer, transaction: res.hash, network: net.name };
       // Already settled earlier (e.g. before a restart): find the original transaction.
-      const latest = await publicClient.getBlockNumber();
+      const latest = await publicClient.getBlockNumber({ cacheTime: 0 });
       const [p] = await vaultClient.getPayments({
         merchant: b.intent.merchant,
         orderId: b.intent.orderId,
         fromBlock: latest > 10_000n ? latest - 10_000n : 0n,
       });
-      return { success: true, payer, transaction: p?.transactionHash ?? "", network: net.name };
+      return { success: true, payer, transaction: p?.transactionHash ?? "", network: net.name, replayed: true };
     } catch (e) {
       if (e instanceof PeraultError) return fail(`perault_${snake(e.code)}`, e.message, payer);
       return fail("unexpected_settle_error", shortError(e), payer);
@@ -259,12 +259,12 @@ export function createFacilitator(cfg: FacilitatorConfig): Facilitator {
       const key = idempotencyKey(req);
       if (!key) return fail("invalid_payload", "Malformed payload.");
       const done = settled.get(key);
-      if (done && Date.now() - done.at <= resultTtlMs) return done.res;
+      if (done && Date.now() - done.at <= resultTtlMs) return { ...done.res, replayed: true };
       const running = inflight.get(key);
       if (running) return running;
 
       const job = (req.paymentPayload.scheme === "perault" ? settlePerault(req) : settleExact(req)).then((res) => {
-        if (res.success) remember(key, res);
+        if (res.success) remember(key, { ...res, replayed: undefined });
         return res;
       });
       inflight.set(key, job);

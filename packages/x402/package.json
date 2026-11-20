@@ -5,7 +5,9 @@
   "type": "module",
   "description": "x402 facilitator for QDay Aevum: settles standard `exact` (EIP-3009 tUSD8) and `perault` (SpendVault session-capped agent) payments.",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./client": "./src/client.ts",
+    "./merchant": "./src/merchant.ts"
   },
   "scripts": {
     "start": "tsx --env-file-if-exists=.env src/main.ts",

@@ -150,6 +150,11 @@ export class PeraultClient {
     return this.read("isActive", [sessionId]);
   }
 
+  /** Whether the session may pay `merchant`. Agents check this before signing anything. */
+  isMerchantAllowed(sessionId: Hex, merchant: Address): Promise<boolean> {
+    return this.read("isMerchantAllowed", [sessionId, merchant]);
+  }
+
   /** The owner's unspent balance inside the vault. */
   balanceOf(owner: Address) {
     return this.read("balanceOf", [owner]);
@@ -171,7 +176,7 @@ export class PeraultClient {
   async getPayments(
     opts: { fromBlock?: bigint; toBlock?: bigint; sessionId?: Hex; merchant?: Address; orderId?: Hex } = {},
   ) {
-    const to = opts.toBlock ?? (await this.publicClient.getBlockNumber());
+    const to = opts.toBlock ?? (await this.publicClient.getBlockNumber({ cacheTime: 0 }));
     const from = opts.fromBlock ?? PERAULT_DEPLOYMENTS[this.chainId]?.deployBlock ?? 0n;
     const args = { sessionId: opts.sessionId, merchant: opts.merchant, orderId: opts.orderId };
     const out = [];

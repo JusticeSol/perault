@@ -16,6 +16,85 @@ the answer to "why not just give the agent a wallet?": with `exact` the agent ho
 can drain its wallet; with `perault` it holds a key whose only power is a budget the owner can
 revoke.
 
+## Merchant: put an endpoint behind a payment
+
+`createPaywall` works with any Fetch-API handler (Next.js route handlers, Hono, Bun, Deno,
+Cloudflare Workers). For Express or plain Node, wrap it with `toNodeListener`.
+
+```ts
+import { createPaywall } from "@perault/x402/merchant";
+
+const paywall = createPaywall({
+  facilitatorUrl: process.env.FACILITATOR_URL!, // e.g. http://localhost:4020
+  apiKey: process.env.FACILITATOR_API_KEY,
+  payTo: "0xStore…",
+});
+
+// app/api/buy/route.ts (Next.js)
+export const GET = (req: Request) =>
+  paywall.protect(req, { amount: 3_500_000n, description: "Black hoodie, M" }, async (paid) => {
+    // paid: { scheme, payer, transaction, amount, orderId, replayed, settlement }
+    const order = await ordersDb.upsert(paid.orderId ?? paid.transaction, { sku: "hoodie-black-M", tx: paid.transaction });
+    return Response.json({ order });
+  });
+```
+
+```ts
+// Express
+app.get("/buy", toNodeListener((req) => paywall.protect(req, price, handler)));
+```
+
+What `protect` does:
+
+1. No `X-PAYMENT` header: answers `402` with both options (`perault` with a fresh `orderId`, and
+   `exact`), per the x402 spec.
+2. With a header: sends it to the facilitator's `/settle`, which re-verifies and settles.
+   Payment is settled **before** your handler runs, so nothing is delivered unpaid.
+3. Calls your handler and adds the `X-PAYMENT-RESPONSE` header (base64 settlement with the tx hash).
+
+Failures come back as `402` with `{ error, reason, accepts }` (a fresh quote to retry with), or
+`503` if the facilitator is unreachable ("nothing was charged").
+
+**Make fulfilment idempotent.** A replayed `X-PAYMENT` header (or a client retry) settles as
+`replayed: true` without charging again. Key orders by `paid.orderId` and return the existing
+order. A captured header can't buy a different item: its signed order id only matches the quote
+it was made for.
+
+Quotes are kept in memory until they expire (`maxTimeoutSeconds`, default 120 s). On serverless
+or multi-instance deployments, pass your own `orderId` in the price instead.
+
+## Agent: a `fetch` that pays
+
+```ts
+import { createPayingFetch, getSettlement } from "@perault/x402/client";
+import { PeraultClient } from "@perault/sdk";
+
+const pay = createPayingFetch({
+  perault: { client: new PeraultClient({ publicClient }), signer: agentKey, sessionId },
+  maxAmount: 4_000_000n, // hard per-request ceiling; required
+});
+
+const res = await pay("https://store.example/api/buy?sku=hoodie-black-M");
+const order = await res.json();
+const { transaction } = getSettlement(res)!; // explorer link: https://explorer-test.qday.info/tx/<transaction>
+```
+
+On a `402` it picks an option it supports and, **before signing anything**, checks:
+
+| check | `PaymentError.code` |
+|---|---|
+| price ≤ `maxAmount` | `PriceTooHigh` |
+| `payTo` is on the session's allowlist (read on-chain) | `MerchantNotAllowed` |
+| session active | `SessionInactive` |
+| `spendableNow` covers the price | `OverBudget` |
+
+Then it signs, retries with `X-PAYMENT`, and resends the same signed payment once on a network
+error or `503` (safe: settlement is idempotent). If the merchant still rejects it, the
+`PaymentError` carries the facilitator's reason (`perault_over_daily`, …) and plain-language
+message. The contract enforces every rule again, so a buggy or lying client still can't overspend.
+
+A human wallet can pay the same endpoints with standard x402: `createPayingFetch({ exact: { signer }, maxAmount })`.
+
 ## Run it
 
 ```bash
@@ -127,6 +206,11 @@ runs every on-chain rule. Vault rejections come back as `perault_<code>` (`perau
 ```bash
 make test-x402   # local Shanghai anvil, real SpendVault + MockUSD8 bytecode, requests over HTTP
 ```
+
+`test/flow.test.ts` runs the whole loop over real HTTP: agent (`createPayingFetch`) → store
+(`createPaywall`) → facilitator → SpendVault. It covers the hoodie purchase, a replayed header,
+a header reused for another item, the client-side guards, a rogue merchant, revocation, a human
+`exact` payment and a lying client stopped by the contract.
 
 Also checked against a fork of Aevum testnet: `exact` settled against the real tUSD8
 (FiatTokenV2) and `perault` against the deployed SpendVault.
