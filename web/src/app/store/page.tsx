@@ -222,7 +222,12 @@ function ProductCard({
       <button type="button" className="btn block" disabled={!ready || short_ || state.status === "signing"} onClick={onBuy}>
         {state.status === "signing" ? "Sign in your wallet…" : "Buy with wallet"}
       </button>
-      {ready && short_ && <span className="err">You need {money(p.price)} tUSD8 (you have {money(balance)}).</span>}
+      {ready && short_ && (
+        <span className="err">
+          You need {money(p.price)} tUSD8 in your wallet (it has {money(balance)}). Money in your Perault vault is for your agents: withdraw it
+          on the <a href="/dashboard">dashboard</a> to spend it yourself.
+        </span>
+      )}
       {state.status === "signing" && <span className="fine">One signature, no gas. The store&apos;s facilitator settles it on Aevum.</span>}
       {state.status === "done" && (
         <div className="notice good" role="status">
