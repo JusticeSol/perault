@@ -3,6 +3,7 @@ import {
   injectedWallet,
   metaMaskWallet,
   rabbyWallet,
+  subWallet,
   walletConnectWallet,
 } from "@rainbow-me/rainbowkit/wallets";
 import type { Chain } from "viem";
@@ -11,15 +12,22 @@ import { networks, walletConnectProjectId } from "./env";
 
 const appName = "Perault";
 
-// With a WalletConnect project id: extension wallets + QR for mobile wallets.
-// Without one: any injected browser wallet (MetaMask, Rabby, …) still works.
+// Named wallets find their own extension by its EIP-6963 announcement (io.metamask,
+// app.subwallet, …), so with several wallet extensions installed the user picks one by name and
+// the app talks to exactly that one. The generic "injected" entry only uses window.ethereum,
+// which whichever extension loaded last may have taken over.
+// With a WalletConnect project id, mobile wallets via QR are offered too.
+const browserWallets = [metaMaskWallet, rabbyWallet, subWallet];
 const connectors = connectorsForWallets(
   walletConnectProjectId
     ? [
-        { groupName: "Popular", wallets: [metaMaskWallet, rabbyWallet, walletConnectWallet] },
+        { groupName: "Popular", wallets: [...browserWallets, walletConnectWallet] },
         { groupName: "More", wallets: [injectedWallet] },
       ]
-    : [{ groupName: "Browser wallet", wallets: [injectedWallet] }],
+    : [
+        { groupName: "Browser wallets", wallets: browserWallets },
+        { groupName: "Other", wallets: [injectedWallet] },
+      ],
   { appName, projectId: walletConnectProjectId ?? "not-set" },
 );
 
