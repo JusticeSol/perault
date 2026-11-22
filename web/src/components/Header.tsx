@@ -10,6 +10,7 @@ import { useNetwork } from "@/lib/network";
 
 const links = [
   { href: "/dashboard", label: "Dashboard" },
+  { href: "/store", label: "Store" },
   { href: "/", label: "Setup" },
   { href: "/checkout", label: "Checkout" },
   { href: "/activity", label: "Activity" },

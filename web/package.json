@@ -19,7 +19,8 @@
     "react": "19.2.0",
     "react-dom": "19.2.0",
     "viem": "2.57.12",
-    "wagmi": "2.19.5"
+    "wagmi": "2.19.5",
+    "@perault/x402": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",

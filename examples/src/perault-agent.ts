@@ -14,7 +14,8 @@ const sessionId = required("PERAULT_SESSION_ID") as Hex;
 const storeUrl = (process.env.STORE_URL ?? "http://localhost:3001").replace(/\/$/, "");
 const skus = process.argv.slice(2).length ? process.argv.slice(2) : ["hoodie-black-M"];
 
-const client = new PeraultClient({ publicClient: createPublicClient({ chain: aevumTestnet, transport: http() }) });
+// RPC_URL lets the same script run against a local fork of Aevum.
+const client = new PeraultClient({ publicClient: createPublicClient({ chain: aevumTestnet, transport: http(process.env.RPC_URL || undefined) }) });
 const pay = createPayingFetch({ perault: { client, signer: agent, sessionId }, maxAmount: 4_000_000n });
 const fmt = (v: bigint) => `${formatUnits(v, 6)} tUSD8`;
 
