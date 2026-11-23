@@ -1,24 +1,24 @@
 import type { Metadata } from "next";
 import { links, TUSD8_ADDRESS } from "@aevum-kit/aevum";
+import { PERAULT_DEPLOYMENTS } from "@perault/sdk";
 import { GitHubIcon } from "@/components/Icons";
 import { repoUrl } from "@/lib/env";
 
 export const metadata: Metadata = { title: "Docs" };
 
-const HACKATHON_URL = "https://dorahacks.io/hackathon/qday/detail";
+const VAULT = PERAULT_DEPLOYMENTS[44005].vault;
 const DISCORD_URL = "https://discord.gg/bYPhjmrSfK";
+const SITE = "https://perault.vercel.app";
 
 const sections = [
-  { id: "challenge", label: "The challenge" },
-  { id: "quickstart", label: "Quickstart" },
-  { id: "network", label: "Network details" },
-  { id: "tokens", label: "Get test tokens" },
-  { id: "deploy", label: "Deploy to Aevum" },
-  { id: "checkout", label: "How the checkout works" },
-  { id: "differences", label: "Differences from Ethereum" },
-  { id: "commands", label: "Commands" },
-  { id: "submitting", label: "Submitting your project" },
-  { id: "judging", label: "Judging" },
+  { id: "how", label: "How Perault works" },
+  { id: "owners", label: "For owners" },
+  { id: "agents", label: "For agents (Claude)" },
+  { id: "merchants", label: "For merchants" },
+  { id: "facilitator", label: "Facilitator API" },
+  { id: "contract", label: "Contract" },
+  { id: "network", label: "Network and tokens" },
+  { id: "safety", label: "Safety" },
   { id: "faq", label: "FAQ" },
 ];
 
@@ -30,26 +30,23 @@ function Code({ children }: { children: string }) {
   );
 }
 
+const src = (path: string) => `${repoUrl}/blob/main/${path}`;
+
 export default function DocsPage() {
   return (
     <main className="shell">
       <div className="page-head">
         <div>
-          <h1>Build on Aevum testnet</h1>
+          <h1>Perault docs</h1>
           <p className="lede">
-            Everything in this kit, on one page: run it locally, deploy to chain 44005, and the few places where Aevum behaves differently
-            from Ethereum.
+            How to give an AI agent a budget, let it pay for things, and accept those payments in your own shop or API. Everything runs on QDay
+            Aevum, paid in tUSD8.
           </p>
         </div>
         <a className="btn secondary" href={repoUrl} target="_blank" rel="noreferrer">
           <GitHubIcon />
           View the code on GitHub
         </a>
-      </div>
-
-      <div className="notice warn">
-        <strong>Judging counts activity on Aevum.</strong>
-        <span>Contracts, payments and transfers must happen on Aevum testnet. Settling only on another chain (for example x402 on Base) doesn&apos;t count.</span>
       </div>
 
       <div className="docs">
@@ -62,435 +59,225 @@ export default function DocsPage() {
           ))}
         </nav>
 
-        <article className="docs-body">
-          <section id="challenge">
-            <h2>Aevum Builder Challenge #1</h2>
+        <div className="docs-body">
+          <section id="how">
+            <h2>How Perault works</h2>
             <p>
-              Build a payment app with the <strong>tUSD8</strong> stablecoin on Aevum testnet. Fully online, solo or teams of 2 to 4. Your
-              project is built during the build window, and every contract runs on Aevum testnet with test tokens only. Open-source
-              boilerplate, templates and this kit are allowed when their license permits it. See{" "}
-              <a href="#licenses">Licenses and credit</a>.
+              Think of Perault as a prepaid card you hand to an AI agent. You put tUSD8 in a <strong>vault</strong>, then give an agent a{" "}
+              <strong>budget</strong>: how much it may spend per payment, per day and in total, which shops it may pay, and when the budget ends.
+              Each budget has a switch that turns the agent off at once.
+            </p>
+            <p>
+              The agent gets its own key, which can only <em>sign</em> payments. It never holds money or gas. When a shop asks to be paid, the
+              agent signs a payment for that exact price and order, and the shop&apos;s facilitator submits it to the <strong>SpendVault</strong>{" "}
+              contract. The contract checks every limit before any money moves, so an agent that is tricked, or software that misbehaves, still
+              can&apos;t spend more than its budget or pay a shop you didn&apos;t allow.
+            </p>
+            <p>
+              Shops get paid through <strong>x402</strong>, the web standard for &ldquo;402 Payment Required&rdquo;. The same shop link works for
+              an agent paying from its budget and for a person paying from their own wallet.
+            </p>
+          </section>
+
+          <section id="owners">
+            <h2>For owners</h2>
+            <p>On the <a href="/dashboard">dashboard</a>, with the wallet that holds your tUSD8:</p>
+            <ol>
+              <li>
+                <strong>Add money</strong> to the vault. The first time, your wallet asks twice: once to allow the vault, once to move the money.
+                The vault money is still yours; take it out whenever you like.
+              </li>
+              <li>
+                <strong>Give an agent a budget.</strong> Enter the agent&apos;s address, or press <em>Generate new agent key</em> and the site makes
+                one (shown once, never stored). Set the limits and the shops it can pay, read the summary, and confirm.
+              </li>
+              <li>
+                <strong>Connect the agent.</strong> The dashboard shows a ready-made config for Claude. See{" "}
+                <a href="#agents">For agents</a>.
+              </li>
+              <li>
+                <strong>Watch and control.</strong> Every payment appears under <em>Payments by your agents</em> within seconds. Press an
+                agent&apos;s switch twice to turn it off for good, or use <em>Turn off all agents</em> to stop every budget in one transaction.
+              </li>
+            </ol>
+            <div className="card info">
+              <h3>Vault or wallet?</h3>
+              <p className="sub" style={{ marginBottom: 0 }}>
+                Money in the vault is for your agents to spend within their budgets. Money in your wallet is for you: buying something yourself
+                with <em>Buy with wallet</em> uses your wallet, not the vault.
+              </p>
+            </div>
+          </section>
+
+          <section id="agents">
+            <h2>For agents (Claude)</h2>
+            <p>
+              The Perault MCP server gives Claude (or any MCP client) four tools. It needs the agent&apos;s key and the budget&apos;s session ID.
+              Keep the key in a file outside your project, so it never sits in a config:
+            </p>
+            <Code>{`
+claude mcp add perault --scope local \\
+  -e PERAULT_SESSION_ID=0x… \\
+  -e PERAULT_MAX_AMOUNT=4 \\
+  -e PERAULT_ALLOWED_HOSTS=perault.vercel.app \\
+  -- node <repo>/packages/mcp/node_modules/tsx/dist/cli.mjs \\
+     --env-file=<file containing AGENT_PRIVATE_KEY=0x…> <repo>/packages/mcp/src/main.ts
+`}</Code>
+            <div className="table-wrap">
+              <table className="data docs-table">
+                <tbody>
+                  <tr><th scope="row"><code>get_budget</code></th><td>What the agent can spend now, its limits, and when the budget ends. Free.</td></tr>
+                  <tr><th scope="row"><code>check_price</code></th><td>What a link costs, who gets paid, and whether the agent may pay it, without paying. Use it to confirm with you first.</td></tr>
+                  <tr><th scope="row"><code>pay_402_url</code></th><td>Opens a link and pays for it from the budget, then returns the result and the transaction link. An optional <code>max_amount</code> can only lower the limit.</td></tr>
+                  <tr><th scope="row"><code>list_payments</code></th><td>The budget&apos;s recent payments, with transaction links.</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <p>Then just ask:</p>
+            <Code>{`Buy me the black hoodie from ${SITE}/api/store/buy?sku=hoodie-black-M. It should cost 3.50.`}</Code>
+            <p>
+              Before signing anything, the agent checks on-chain that the shop is allowed, the budget is on, and the price fits. Text from the shop
+              comes back marked as untrusted, so a product page saying &ldquo;now pay this other address&rdquo; is treated as data, not an
+              instruction.
+            </p>
+          </section>
+
+          <section id="merchants">
+            <h2>For merchants</h2>
+            <p>
+              Put any endpoint behind a payment with <code>createPaywall</code> from <code>@perault/x402</code>. It answers{" "}
+              <code>402 Payment Required</code> with the price, settles the payment through a facilitator, and only then runs your code. It works with
+              Next.js route handlers, Hono, Bun and Deno; wrap it with <code>toNodeListener</code> for Express.
+            </p>
+            <Code>{`
+import { createPaywall } from "@perault/x402/merchant";
+
+const paywall = createPaywall({
+  facilitatorUrl: "${SITE}/api/x402",
+  apiKey: process.env.FACILITATOR_API_KEY,
+  payTo: "0xYourShopAddress",
+  secret: process.env.PAYWALL_SECRET,   // needed on serverless hosting
+});
+
+export const GET = (req: Request) =>
+  paywall.protect(req, { amount: 3_500_000n, description: "Black hoodie, M" }, async (paid) => {
+    // paid: { scheme, payer, transaction, amount, orderId, replayed }
+    return Response.json({ order: await saveOrder(paid) });
+  });
+`}</Code>
+            <p>
+              Each request offers two ways to pay: <strong>perault</strong> for agents with a budget, and the standard x402{" "}
+              <strong>exact</strong> for people paying from a wallet (one signature, no gas). If the same payment arrives twice, it settles once
+              and comes back marked <code>replayed: true</code>: return the original order rather than sending a second one.
+            </p>
+            <p>
+              Agents pay with <code>createPayingFetch</code>, a <code>fetch</code> that handles the 402 for them. See the{" "}
+              <a href={src("packages/x402/README.md")} target="_blank" rel="noreferrer">x402 package README</a>.
+            </p>
+          </section>
+
+          <section id="facilitator">
+            <h2>Facilitator API</h2>
+            <p>
+              A public x402 facilitator for Aevum runs at <code>{SITE}/api/x402</code>. It checks payments and submits them on-chain, paying the
+              gas. You can also run your own with Docker: see the{" "}
+              <a href={src("packages/x402/README.md#run-it")} target="_blank" rel="noreferrer">README</a>.
             </p>
             <div className="table-wrap">
               <table className="data docs-table">
                 <tbody>
-                  <tr><th scope="row">Kickoff</th><td>16 Nov 2026, 14:00 HKT (06:00 UTC)</td></tr>
-                  <tr><th scope="row">Submission deadline</th><td>11 Dec 2026, 16:00 HKT (08:00 UTC). Late submissions aren&apos;t accepted.</td></tr>
-                  <tr><th scope="row">Judging</th><td>12 to 14 Dec 2026</td></tr>
-                  <tr><th scope="row">Winners</th><td>15 Dec 2026, 14:00 HKT (06:00 UTC)</td></tr>
-                  <tr><th scope="row">Prizes</th><td>$1,500 in USDT: 1st $800, 2nd $500, 3rd $200</td></tr>
-                  <tr><th scope="row">Help</th><td><a href={DISCORD_URL} target="_blank" rel="noreferrer">QDay Discord</a>, Monday to Friday, 10:00 to 18:00 HKT</td></tr>
-                  <tr><th scope="row">Submit at</th><td><a href={HACKATHON_URL} target="_blank" rel="noreferrer">dorahacks.io/hackathon/qday</a></td></tr>
+                  <tr><th scope="row"><code>GET /supported</code></th><td>The payment types it settles: <code>exact</code> and <code>perault</code> on <code>aevum-testnet</code>.</td></tr>
+                  <tr><th scope="row"><code>GET /health</code></th><td>The relayer&apos;s address and gas balance.</td></tr>
+                  <tr><th scope="row"><code>POST /verify</code></th><td>Checks a payment without sending it. Body: <code>{"{ x402Version, paymentPayload, paymentRequirements }"}</code>.</td></tr>
+                  <tr><th scope="row"><code>POST /settle</code></th><td>Checks and sends it, then returns the transaction. Needs <code>Authorization: Bearer &lt;API key&gt;</code>.</td></tr>
                 </tbody>
               </table>
             </div>
-            <h3>Tracks</h3>
-            <div className="table-wrap">
-              <table className="data docs-table wide">
-                <thead>
-                  <tr><th>Track</th><th>Where this kit helps</th></tr>
-                </thead>
-                <tbody>
-                  <tr><td><strong>Invoice Payments</strong></td><td>An order id is an invoice id. <code>Checkout.paymentOf(orderId)</code> tells you if it&apos;s paid; the <code>Paid</code> event is the receipt.</td></tr>
-                  <tr><td><strong>Payroll and Vesting</strong></td><td>Reuse the tUSD8 setup, the chunked event reader and the relayer. Streaming and schedules are yours to build.</td></tr>
-                  <tr><td><strong>Crowdfunding</strong></td><td>Pledges are payments to a campaign contract. Start from <code>Checkout.sol</code> and add goals, deadlines and refunds.</td></tr>
-                  <tr><td><strong>Confirmation of Payee</strong></td><td>Check who you&apos;re paying before you sign. Aevum testnet has an ERC-8004-style identity registry, <code className="wrap">0xF45E7f39Caba1d2055f613970575a7e7069636Be</code> (found on chain, not in QDay&apos;s docs yet).</td></tr>
-                  <tr><td><strong>Decentralized Payments</strong></td><td>Gasless checkout (EIP-3009 + relayer) works today. Account abstraction is on its way to this kit.</td></tr>
-                  <tr><td><strong>Digital Ownership</strong></td><td>Pay in tUSD8, then mint or transfer the asset in the same contract call.</td></tr>
-                  <tr><td><strong>Native AI Assistants</strong></td><td><code>examples/pay-gasless</code> shows a script that signs and pays without a browser, the starting point for an agent.</td></tr>
-                  <tr><td><strong>Other business payment tools</strong></td><td>Anything that moves tUSD8 on Aevum for a real business need.</td></tr>
-                </tbody>
-              </table>
-            </div>
+            <Code>{`
+curl ${SITE}/api/x402/supported
+# {"kinds":[{"x402Version":1,"scheme":"exact","network":"aevum-testnet"},
+#           {"x402Version":1,"scheme":"perault","network":"aevum-testnet","extra":{"vault":"0xc615…14Dc"}}]}
+`}</Code>
             <p>
-              Full rules: <a href={HACKATHON_URL} target="_blank" rel="noreferrer">the DoraHacks challenge page</a>. They win over anything on
-              this page.
+              Rejections come back with a stable reason and a plain message, for example{" "}
+              <code>{`{"isValid":false,"invalidReason":"perault_over_daily","invalidMessage":"The amount would exceed today's spending limit (resets 00:00 UTC)."}`}</code>.
             </p>
           </section>
 
-          <section id="quickstart">
-            <h2>Quickstart</h2>
-            <p>
-              Five minutes, no funds needed. You need Node 22+, pnpm and Foundry (<code>foundryup</code>).
-            </p>
-            <Code>{`
-git clone --recursive ${repoUrl}.git
-cd aevum-starter-kit
-make install          # Solidity libs + JS packages
-make check            # build, Shanghai opcode check, unit tests, fork tests
-`}</Code>
-            <p>Run the whole app against a local copy of Aevum, with the real tUSD8 and free test balances:</p>
-            <Code>{`
-# terminal 1: local copy of Aevum testnet on 127.0.0.1:8555 (chain 440050)
-make fork
-
-# terminal 2: deploy Checkout and give yourself test money
-make deploy-fork                      # prints the Checkout address
-make deal TO=<your wallet address>    # 100 tUSD8 + 10 tQDAY, on the fork only
-
-cp web/.env.example web/.env.local
-#   NEXT_PUBLIC_NETWORKS=fork,aevum
-#   NEXT_PUBLIC_CHECKOUT_FORK=<address from deploy-fork>
-#   RELAYER_PRIVATE_KEY=<an anvil test key>   (optional: enables gasless mode)
-make dev
-`}</Code>
-            <p>
-              Use the <strong>Local fork / Aevum testnet</strong> switcher in the header. The first time you pick the fork, your wallet offers to
-              add &quot;Aevum fork (local)&quot; as a new network. After that, switching is one click, and your real testnet network stays
-              untouched.
-            </p>
-            <div className="card info">
-              <h3>Why the fork has its own chain ID (440050)</h3>
-              <p className="sub">
-                It copies Aevum&apos;s state (accounts, balances, tUSD8), but anything you sign there, such as an EIP-3009 authorization or a
-                permit, can&apos;t be replayed on the real testnet, and wallets never mix the two up. <code>make deploy-fork</code> also deploys
-                from a random address nobody has the key to, so its contract addresses can&apos;t be claimed on the real testnet.
-              </p>
+          <section id="contract">
+            <h2>Contract</h2>
+            <div className="table-wrap">
+              <table className="data docs-table">
+                <tbody>
+                  <tr><th scope="row">SpendVault</th><td><a href={`${links.explorer}/address/${VAULT}`} target="_blank" rel="noreferrer"><code className="wrap">{VAULT}</code></a></td></tr>
+                  <tr><th scope="row">Source</th><td><a href={src("contracts/src/SpendVault.sol")} target="_blank" rel="noreferrer">contracts/src/SpendVault.sol</a></td></tr>
+                  <tr><th scope="row">Signing domain</th><td>EIP-712 <code>name: &quot;Perault&quot;</code>, <code>version: &quot;1&quot;</code>, chain 44005</td></tr>
+                </tbody>
+              </table>
             </div>
+            <Code>{`
+openSession(agent, perTxCap, dailyCap, totalCap, expiry, merchants[]) → sessionId
+setMerchant(sessionId, merchant, allowed) · revoke(sessionId) · revokeAll()
+deposit(amount) · depositWithAuthorization(…) · withdraw(amount)
+pay(PaymentIntent, signature)       // anyone may submit; every limit is checked here
+preview(PaymentIntent, signature)   // the same checks, free: returns the error pay() would hit
+budgetOf(sessionId) · getSession(sessionId) · receiptOf(merchant, orderId)
+`}</Code>
             <p>
-              Any of anvil&apos;s default accounts works as a local relayer. Those keys are public, so the relayer refuses them on Aevum testnet: give it a fresh test wallet there. Want an empty
-              chain instead? <code>make anvil</code> + <code>make deploy-local</code> deploys a <code>MockUSD8</code> that anyone can mint with{" "}
-              <code>make mint</code>.
+              The contract has no admin, no pause and no upgrade. The TypeScript SDK, <code>@perault/sdk</code>, wraps all of it, with plain-language
+              errors: see its <a href={src("packages/perault-sdk/README.md")} target="_blank" rel="noreferrer">README</a>.
             </p>
           </section>
 
           <section id="network">
-            <h2>Network details</h2>
+            <h2>Network and tokens</h2>
             <div className="table-wrap">
               <table className="data docs-table">
                 <tbody>
-                  <tr><th scope="row">Network</th><td>QDay Aevum Testnet</td></tr>
-                  <tr><th scope="row">Chain ID</th><td><code>44005</code></td></tr>
-                  <tr><th scope="row">RPC</th><td><code>https://rpc-test.qday.info</code> (HTTPS only, no WebSocket)</td></tr>
+                  <tr><th scope="row">Network</th><td>QDay Aevum Testnet, chain ID <code>44005</code></td></tr>
+                  <tr><th scope="row">RPC</th><td><code>https://rpc-test.qday.info</code> (HTTPS only)</td></tr>
                   <tr><th scope="row">Explorer</th><td><a href={links.explorer} target="_blank" rel="noreferrer">{links.explorer.replace("https://", "")}</a></td></tr>
-                  <tr><th scope="row">Gas token</th><td>tQDAY (18 decimals), about 1 gwei. 1 tQDAY covers hundreds of contract calls.</td></tr>
-                  <tr><th scope="row">EVM version</th><td><strong>Shanghai</strong></td></tr>
-                  <tr><th scope="row">tUSD8</th><td><code className="wrap">{TUSD8_ADDRESS}</code><br />6 decimals, USDC-style: EIP-2612 <code>permit</code>, EIP-3009 signed transfers. EIP-712 domain <code>name: &quot;tUSD8&quot;</code>, <code>version: &quot;2&quot;</code>.</td></tr>
-                  <tr><th scope="row">Multicall3</th><td><code className="wrap">0xcA11bde05977b3631167028862bE2a173976CA11</code></td></tr>
+                  <tr><th scope="row">Gas</th><td>tQDAY. Agents never need any; the facilitator pays.</td></tr>
+                  <tr><th scope="row">tUSD8</th><td><code className="wrap">{TUSD8_ADDRESS}</code>, 6 decimals. Add it to your wallet with this address to see your balance.</td></tr>
                 </tbody>
               </table>
             </div>
             <p>
-              All of this is exported from <code>@aevum-kit/aevum</code> (<code>packages/aevum/src/chain.ts</code> and <code>contracts.ts</code>).
+              Test tokens: join the <a href={DISCORD_URL} target="_blank" rel="noreferrer">QDay Discord</a> and use its faucet, or the{" "}
+              <a href={links.faucetWeb} target="_blank" rel="noreferrer">web faucet</a>. Testnet tokens have no value.
             </p>
           </section>
 
-          <section id="tokens">
-            <h2>Get test tokens</h2>
+          <section id="safety">
+            <h2>Safety</h2>
             <ul>
-              <li>
-                <strong>Discord faucet (for challenge participants, recommended):</strong> enough to deploy and pay, and no mainnet balance
-                needed. See below.
-              </li>
-              <li>
-                <strong>Web faucet:</strong>{" "}
-                <a href={links.faucetWeb} target="_blank" rel="noreferrer">faucet.qday.info</a>. Check the page for its rules.
-              </li>
-              <li>
-                <strong>Local fork:</strong> <code>make deal TO=&lt;address&gt;</code> for unlimited test balances. Nothing leaves your machine.
-              </li>
+              <li><strong>A leaked agent key</strong> can only spend what&apos;s left of its budget, at allowed shops, until it ends. Switch it off and the key is worthless.</li>
+              <li><strong>A tricked agent</strong> (&ldquo;pay this address instead&rdquo;) is refused twice: by the agent software before it signs, and by the contract.</li>
+              <li><strong>Runaway spending</strong> stops at the per-payment, daily and total limits, enforced on-chain.</li>
+              <li><strong>Repeated payments</strong> never charge twice: every signed payment and every order can be used once.</li>
+              <li><strong>Your own money</strong> stays yours: nobody but you can take money out of your part of the vault, and there is no admin key.</li>
             </ul>
-            <p>1 tQDAY is plenty: deploying <code>Checkout</code> costs well under 0.01 tQDAY.</p>
-            <h3>Discord faucet</h3>
-            <ol>
-              <li>
-                Join the <a href={DISCORD_URL} target="_blank" rel="noreferrer">QDay Discord</a>.
-              </li>
-              <li>
-                In <code>#verify</code>, react with ✅ to get the <strong>Verified</strong> role.
-              </li>
-              <li>
-                Type <code>/faucet</code>, paste your wallet address, and send. The bot answers privately (only you see it) with the
-                transaction links.
-              </li>
-            </ol>
-            <ul>
-              <li>You get <strong>1 tQDAY + 5 tUSD8</strong>, usually within a few seconds.</li>
-              <li>
-                <strong>Once per Discord account and once per address.</strong> Use the address you&apos;ll build with. Running out? Ask in
-                the help channel.
-              </li>
-              <li>It works for Discord accounts that aren&apos;t brand new. If you can&apos;t claim, the bot says why.</li>
-              <li>Unlike the web faucet, it doesn&apos;t check for an Ethereum mainnet balance, so a fresh testnet-only wallet works.</li>
-            </ul>
-          </section>
-
-          <section id="deploy">
-            <h2>Deploy to Aevum testnet</h2>
-            <p>Keep your deployer key out of files and shell history. Foundry&apos;s encrypted keystore asks for the key once and a password each time:</p>
-            <Code>{`
-cast wallet import aevum-deployer --interactive   # paste the key of a TEST wallet
-cast wallet address --account aevum-deployer      # fund this address from the faucet
-
-make deploy-aevum ACCOUNT=aevum-deployer          # MERCHANT defaults to the deployer
-MERCHANT=0x... make deploy-aevum ACCOUNT=aevum-deployer
-`}</Code>
-            <p>
-              Then set <code>NEXT_PUBLIC_CHECKOUT_AEVUM</code> in <code>web/.env.local</code> and add <code>aevum</code> to{" "}
-              <code>NEXT_PUBLIC_NETWORKS</code>.
-            </p>
-            <p>
-              <strong>Putting the app online:</strong> set <code>NEXT_PUBLIC_NETWORKS=aevum</code> only. With <code>fork</code> or{" "}
-              <code>local</code> listed, visitors get a &quot;Local fork&quot; option that points at their own 127.0.0.1. Give the relayer its own
-              wallet with a little tQDAY, and read the relayer notes in <a href="#checkout">How the checkout works</a>.
-            </p>
-            <div className="notice bad">
-              <strong>Use a wallet made only for testing.</strong>
-              <span>Never paste a private key into chat, an issue, or a committed file.</span>
-            </div>
-            <p>
-              <strong>Contract verification</strong> on the explorer isn&apos;t working yet, so <code>forge verify-contract</code> fails for now.
-              Put your contract addresses and a link to the exact commit in your README and submission instead.
-            </p>
-          </section>
-
-          <section id="checkout">
-            <h2>How the checkout works</h2>
-            <p>
-              <code>Checkout</code> takes one token and one merchant address. Each <code>orderId</code> (any <code>bytes32</code>) can be paid
-              once. The money goes straight to the merchant, and the <code>Paid(orderId, payer, amount)</code> event is the receipt.
-            </p>
-            <div className="grid-2">
-              <div className="card">
-                <h3>Standard</h3>
-                <p className="sub">Two transactions. The buyer pays gas.</p>
-                <Code>{`
-buyer → approve(Checkout, amount) → tUSD8
-buyer → pay(orderId, amount)      → Checkout
-        Checkout → transferFrom   → merchant
-`}</Code>
-              </div>
-              <div className="card">
-                <h3>Gasless</h3>
-                <p className="sub">One signature. The buyer needs no tQDAY.</p>
-                <Code>{`
-buyer   signs ReceiveWithAuthorization (off-chain)
-relayer → payWithAuthorization(...) → Checkout
-          Checkout → receiveWithAuthorization
-          tUSD8 → Checkout → merchant
-`}</Code>
-              </div>
-            </div>
-            <p>Design choices worth keeping:</p>
-            <ul>
-              <li>
-                The signed <code>nonce</code> must equal <code>Checkout.authorizationNonce(orderId)</code>. That binds the signature to one order, so
-                a relayer can&apos;t reuse it to mark a different order as paid.
-              </li>
-              <li>
-                <code>receiveWithAuthorization</code> (not <code>transferWithAuthorization</code>) means only the Checkout can pull the funds, so
-                nobody can front-run the signature into a plain transfer.
-              </li>
-              <li>
-                The contract doesn&apos;t know prices. Your app decides what an order costs (<code>priceOf</code> in{" "}
-                <code>web/src/lib/order.ts</code>) and checks <code>paymentOf(orderId)</code> <strong>and its amount</strong> before delivering.
-              </li>
-            </ul>
-            <p>
-              The relayer (<code>web/src/app/api/relay/route.ts</code>) pays gas for anyone who calls it, so it has rails. Keep them:
-            </p>
-            <ul>
-              <li>Only <code>payWithAuthorization</code> on your Checkout, nothing else.</li>
-              <li>Only the price your app set for that order. Otherwise anyone could burn your gas with 0.000001 tUSD8 payments.</li>
-              <li>Skips orders already paid or already being submitted, and simulates before sending.</li>
-              <li>Refuses anvil&apos;s public keys on a real network, caps the signature window at 1 hour, rate-limits per IP and per payer, and stops at a daily cap.</li>
-              <li>
-                <strong>The limits live in memory.</strong> Fine for <code>next start</code> on one server; on serverless hosts move them to a shared
-                store (Redis, your database). Set <code>TRUSTED_IP_HEADER</code> to your host&apos;s client-IP header.
-              </li>
-            </ul>
-            <div className="notice warn">
-              <strong>Anyone can pay any order, with any amount.</strong>
-              <span>
-                <code>pay(orderId, 1)</code> marks an order as paid for 0.000001 tUSD8 and can front-run the real buyer. Never ship on{" "}
-                <code>isPaid</code> alone: compare the amount. For production, key payments by <code>keccak256(payer, orderId)</code> or have the
-                merchant sign each quote, and use unguessable order ids.
-              </span>
-            </div>
-            <p>Code to read, in order:</p>
-            <ol>
-              <li><code>contracts/src/Checkout.sol</code></li>
-              <li><code>contracts/test/Checkout.t.sol</code>: every rule above as a test</li>
-              <li><code>contracts/test/fork/AevumFork.t.sol</code>: the same flows against the real tUSD8</li>
-              <li><code>examples/src/pay-gasless.ts</code>: sign and relay in about 40 lines</li>
-              <li><code>web/src/app/checkout/page.tsx</code>: both modes in the UI</li>
-            </ol>
-          </section>
-
-          <section id="differences">
-            <h2>Differences from Ethereum</h2>
-            <div className="table-wrap">
-              <table className="data docs-table wide">
-                <thead>
-                  <tr><th>Topic</th><th>What happens</th><th>What to do</th></tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td><strong>Shanghai EVM</strong></td>
-                    <td>Cancun opcodes (<code>MCOPY</code>, <code>TSTORE</code>/<code>TLOAD</code>, blob ops) don&apos;t exist. Cancun bytecode deploys, then reverts with <code>invalid opcode</code>.</td>
-                    <td>Keep <code>evm_version = &quot;shanghai&quot;</code>. <code>make build</code> runs <code>tools/check-shanghai.mjs</code>. Avoid OpenZeppelin&apos;s <code>*Transient</code> contracts.</td>
-                  </tr>
-                  <tr>
-                    <td><strong>anvil hides it</strong></td>
-                    <td>Plain <code>anvil --fork-url</code> runs Cancun, so bad bytecode passes local tests.</td>
-                    <td>Always add <code>--hardfork shanghai</code> (the Makefile does).</td>
-                  </tr>
-                  <tr>
-                    <td><strong>1,000-block log limit</strong></td>
-                    <td><code>eth_getLogs</code> over more than 1,000 blocks fails.</td>
-                    <td>Use <code>getLogsChunked</code> from <code>@aevum-kit/aevum</code>, starting from your deploy block.</td>
-                  </tr>
-                  <tr>
-                    <td><strong>No WebSocket RPC</strong></td>
-                    <td><code>watchContractEvent</code> over WS won&apos;t connect.</td>
-                    <td>Poll over HTTPS (viem&apos;s default for <code>http()</code>).</td>
-                  </tr>
-                  <tr>
-                    <td><strong>Explorer verification</strong></td>
-                    <td>Not working yet.</td>
-                    <td>Share addresses and the exact commit instead.</td>
-                  </tr>
-                  <tr>
-                    <td><strong>Legacy transactions</strong></td>
-                    <td>The kit&apos;s scripts and relayer send legacy (type 0) transactions, like QDay&apos;s own faucet.</td>
-                    <td><code>--legacy</code> in <code>forge script</code>, <code>type: &quot;legacy&quot;</code> in viem.</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </section>
-
-          <section id="commands">
-            <h2>Commands</h2>
-            <Code>{`
-make install        Fetch Solidity libs and JS packages
-make build          Compile contracts and check they are Shanghai-safe
-make test           Unit tests (local, no network)
-make test-fork      Tests against the real tUSD8 on a local fork of Aevum
-make check          Everything CI runs
-make anvil          Empty local chain (31337) with Aevum's EVM rules
-make fork           Local copy of Aevum testnet on 127.0.0.1:8555 (chain 440050)
-make deploy-local   Deploy MockUSD8 + Checkout to \`make anvil\`
-make deploy-fork    Deploy Checkout (real tUSD8) to \`make fork\`
-make deploy-aevum   Deploy Checkout to Aevum testnet (ACCOUNT=<keystore>)
-make mint           \`make anvil\` only: mint MockUSD8 (TO=, CHECKOUT=, AMOUNT=)
-make deal           \`make fork\` only: give TO tUSD8 and tQDAY
-make dev            Start the web app
-`}</Code>
-            <p>
-              Examples (copy <code>examples/.env.example</code> to <code>examples/.env</code> first):
-            </p>
-            <Code>{`
-pnpm example check-setup      # chain, block, gas price and balances of ADDRESS
-pnpm example pay-gasless      # BUYER_KEY signs, RELAYER_KEY submits
-pnpm example read-payments    # every Paid event, 1,000 blocks at a time
-`}</Code>
-          </section>
-
-          <section id="submitting">
-            <h2>Submitting your project</h2>
-            <p>What the challenge asks for:</p>
-            <ul>
-              <li><strong>Open-source code:</strong> a public GitHub repository with clean, readable code.</li>
-              <li><strong>Aevum integration:</strong> evidence that your app runs on QDay infrastructure, for example your contracts, ERC-8004 identities or QDay dapps.</li>
-              <li><strong>Live deployment:</strong> a working demo, a prototype interface, or a Docker image that runs the app.</li>
-              <li><strong>Documentation:</strong> the problem you solve, your architecture, the core workflows, and the technologies you used.</li>
-              <li><strong>Demo:</strong> the top 5 projects present a 3 to 5 minute live walkthrough on a video call.</li>
-            </ul>
-            <p>Make it easy for judges to check your on-chain activity:</p>
-            <ul>
-              <li>Contract addresses on Aevum testnet (<code>44005</code>), with explorer links.</li>
-              <li>A link to the exact commit you deployed.</li>
-              <li>A few transaction hashes that show your app working. The receipt and activity pages show them.</li>
-            </ul>
-            <h3>Before you submit</h3>
-            <ul className="checklist">
-              <li>Submitted before the deadline. Submit early; the portal gets slow at the end.</li>
-              <li>The repo is public and opens in a logged-out browser.</li>
-              <li>No private keys, <code>.env</code> files or API keys in the repo or its commit history.</li>
-              <li>A stranger can run the project from your README.</li>
-              <li>Contracts and payments are on Aevum testnet, not another network.</li>
-              <li>The demo link works without logging in.</li>
-              <li>Every team member is listed and registered.</li>
-              <li>The repo has an open-source license, and every template or snippet you reused is credited.</li>
-            </ul>
-            <h3 id="licenses">Licenses and credit</h3>
-            <p>
-              The organizers confirmed that boilerplate, scaffolding and templates are allowed, as long as their license permits the use.
-              This kit is MIT licensed, so you can build on it.
-            </p>
-            <ul>
-              <li>Put a permissive open-source license on your repo, usually MIT or Apache 2.0.</li>
-              <li>
-                If you start from this kit, keep its <code>LICENSE</code> file (or its copyright notice) and say so in your README, for example:
-                &quot;Based on Aevum Starter Kit (MIT, PQA Labs)&quot;.
-              </li>
-              <li>Keep the original copyright and license headers in any file you copy from another project.</li>
-              <li>Put a short comment above any code snippet you borrow, naming the source repo, author and license.</li>
-              <li>
-                List your third-party dependencies and their licenses in your README or a <code>NOTICE</code> file. This kit&apos;s{" "}
-                <a href={`${repoUrl}/blob/main/NOTICE.md`} target="_blank" rel="noreferrer">NOTICE.md</a> shows one way to do it.
-              </li>
-              <li>If you copy a whole directory or library, keep its original <code>LICENSE</code> file in that folder.</li>
-            </ul>
-          </section>
-
-          <section id="judging">
-            <h2>Judging</h2>
-            <p>What judges look at. The DoraHacks page has the current list and weights.</p>
-            <div className="table-wrap">
-              <table className="data docs-table wide">
-                <thead>
-                  <tr><th>Criterion</th><th>What it means</th></tr>
-                </thead>
-                <tbody>
-                  <tr><td><strong>Innovation</strong></td><td>A new idea, architecture or business model that goes beyond templates (this kit included). Creative use of agents and agentic payments.</td></tr>
-                  <tr><td><strong>Technical quality</strong></td><td>Deep, correct platform use (smart accounts, scoped sessions, budgets, expiry). Tested code that handles retries, idempotency and async failures.</td></tr>
-                  <tr><td><strong>Real-world utility</strong></td><td>A real problem for a clear audience that would pay. A believable path to merchants, agents and mainnet.</td></tr>
-                  <tr><td><strong>User experience</strong></td><td>Fast onboarding, clear status and error messages, works across devices. A pitch that explains the problem.</td></tr>
-                  <tr><td><strong>Demo</strong></td><td>A reliable testnet demo with live on-chain activity, showing the main flow and how failures are handled.</td></tr>
-                  <tr><td><strong>Documentation</strong></td><td>Setup steps, an architecture diagram, API references, integrations, assumptions, limitations and a roadmap.</td></tr>
-                  <tr><td><strong>Safety and controls</strong></td><td>Least-privilege sessions, budget caps, safe key storage, injection protection, audit trails, verifiable receipts, easy revoke.</td></tr>
-                </tbody>
-              </table>
-            </div>
           </section>
 
           <section id="faq">
             <h2>FAQ</h2>
             <dl className="faq">
-              <dt>Do I have to use Checkout?</dt>
-              <dd>No. It&apos;s an example. Keep the parts you need (<code>packages/aevum</code>, the chunked log reader, the setup checker) and replace the rest.</dd>
-              <dt>Can I use account abstraction?</dt>
-              <dd>It isn&apos;t required for this challenge, and there&apos;s no officially supported bundler or paymaster. A normal wallet plus tUSD8 payments is enough. To spare users gas, use the gasless checkout in this kit (EIP-3009 with a relayer). For budgets, limits, expiry and revoke, write them into your own contract. You can deploy your own ERC-4337 setup if you want to, but the team won&apos;t support or debug it.</dd>
-              <dt>Can I use Hardhat?</dt>
-              <dd>Yes. Set <code>evmVersion: &quot;shanghai&quot;</code> in the Solidity settings, and <code>hardfork: &quot;shanghai&quot;</code> for the Hardhat network.</dd>
-              <dt>My transaction fails with invalid opcode.</dt>
-              <dd>You compiled for Cancun. See <a href="#differences">Differences from Ethereum</a>.</dd>
-              <dt>eth_getLogs errors on a big range.</dt>
-              <dd>Split it into 1,000-block chunks with <code>getLogsChunked</code>.</dd>
-              <dt>Can I deploy to Sepolia or another testnet?</dt>
-              <dd>Not for the challenge. Contracts and payments must be on Aevum testnet (<code>44005</code>).</dd>
-              <dt>Can I pay gas in tUSD8?</dt>
-              <dd>Not out of the box: there&apos;s no public paymaster that takes tUSD8 yet. Gasless checkout (a relayer pays the tQDAY) is the way to spare users gas today.</dd>
-              <dt>Which explorer?</dt>
-              <dd><a href={links.explorer} target="_blank" rel="noreferrer">{links.explorer.replace("https://", "")}</a>. explorer.qday.io is mainnet.</dd>
-              <dt>Where do I ask for help?</dt>
+              <dt>Does the agent need its own tokens or gas?</dt>
+              <dd>No. It only signs. The vault pays the shop and the facilitator pays the gas.</dd>
+              <dt>Can I raise a budget&apos;s limits later?</dt>
               <dd>
-                In the <a href={DISCORD_URL} target="_blank" rel="noreferrer">QDay Discord</a>&apos;s Builder Challenge channels (verify first
-                to see them). The team answers Monday to Friday, 10:00 to 18:00 HKT (02:00 to 10:00 UTC).
+                No, by design: the spending limits and end date are fixed once a budget is given. You can still add or remove shops, or turn it
+                off. For different limits, give the agent a new budget.
               </dd>
-              <dt>The web faucet says &quot;address not eligible&quot;.</dt>
-              <dd>The web faucet only pays addresses that hold a little ETH, USDT or USDC on Ethereum mainnet. Use the Discord faucet instead.</dd>
+              <dt>What happens when a budget ends?</dt>
+              <dd>The agent can&apos;t pay anything more. Unspent money stays in the vault for other budgets, or for you to take out.</dd>
+              <dt>Why does &ldquo;Spendable now&rdquo; show less than the budget?</dt>
+              <dd>It&apos;s the smallest of: the per-payment limit, what&apos;s left today, what&apos;s left in total, and what&apos;s in the vault.</dd>
+              <dt>Is this real money?</dt>
+              <dd>Not yet. Perault runs on Aevum testnet, where tUSD8 is a test token with no value.</dd>
             </dl>
           </section>
-
-          <p className="fine">
-            Source and full README: <a href={repoUrl} target="_blank" rel="noreferrer">{repoUrl.replace("https://", "")}</a>. QDay&apos;s general
-            guide: <a href={links.docs} target="_blank" rel="noreferrer">{links.docs.replace("https://", "")}</a>. MIT licensed, © 2026 PQA
-            Labs.
-          </p>
-        </article>
+        </div>
       </div>
     </main>
   );
