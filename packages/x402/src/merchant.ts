@@ -45,8 +45,8 @@ export interface PaidContext {
 }
 
 export interface PaywallConfig {
-  /** Base URL of a Perault x402 facilitator, e.g. http://localhost:4020 */
-  facilitatorUrl: string;
+  /** Base URL of a Perault x402 facilitator, e.g. http://localhost:4020. Or pass `facilitator`. */
+  facilitatorUrl?: string;
   /** Sent as `Authorization: Bearer` to /settle. */
   apiKey?: string;
   /** Your receiving address. */
@@ -55,6 +55,18 @@ export interface PaywallConfig {
   /** Accepted schemes, in the order offered. Default both. */
   schemes?: Array<"perault" | "exact">;
   fetch?: typeof fetch;
+  /**
+   * Call a facilitator in the same process instead of over HTTP (e.g. a Next.js app that hosts
+   * its own facilitator routes). Takes precedence over `facilitatorUrl`.
+   */
+  facilitator?: { settle(req: FacilitatorRequest): Promise<SettleResponse> };
+  /**
+   * Signs quotes so any instance can verify a returning payment without shared memory. Required on
+   * serverless or multi-instance hosting (Vercel, Lambda, several replicas): without it, quotes
+   * live in this process's memory and a paid retry that lands on another instance is refused.
+   * Use a long random string and keep it secret.
+   */
+  secret?: string;
 }
 
 interface Quote {
@@ -62,6 +74,22 @@ interface Quote {
   amount: bigint;
   resource: string;
   expiresAt: number;
+}
+
+const enc = new TextEncoder();
+const hex = (b: ArrayBuffer) => [...new Uint8Array(b)].map((x) => x.toString(16).padStart(2, "0")).join("");
+
+/** HMAC-SHA256 via Web Crypto (Node, browsers, edge runtimes). */
+async function hmac(secret: string, msg: string): Promise<string> {
+  const key = await crypto.subtle.importKey("raw", enc.encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  return hex(await crypto.subtle.sign("HMAC", key, enc.encode(msg)));
+}
+
+function sameString(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let d = 0;
+  for (let i = 0; i < a.length; i++) d |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return d === 0;
 }
 
 /**
@@ -77,8 +105,12 @@ export function createPaywall(cfg: PaywallConfig) {
   const net = cfg.network ?? AEVUM_TESTNET;
   const schemes = cfg.schemes ?? ["perault", "exact"];
   const doFetch = cfg.fetch ?? fetch;
-  const base = cfg.facilitatorUrl.replace(/\/$/, "");
+  if (!cfg.facilitator && !cfg.facilitatorUrl) throw new Error("createPaywall needs facilitatorUrl or facilitator");
+  const base = (cfg.facilitatorUrl ?? "").replace(/\/$/, "");
   const quotes = new Map<Hex, Quote>();
+
+  /** What a signed order reference commits to: the purchase it was quoted for. */
+  const macInput = (rand: string, exp: string, resource: string, amount: bigint) => `${rand}|${exp}|${resource}|${amount}`;
 
   function sweep() {
     const now = Date.now();
@@ -108,19 +140,53 @@ export function createPaywall(cfg: PaywallConfig) {
     return Response.json(body, { status: 402, headers: { "cache-control": "no-store" } });
   }
 
-  function newQuote(price: Price, resource: string): string {
+  async function newQuote(price: Price, resource: string): Promise<string> {
+    if (price.orderId) return price.orderId;
+    const expiresAt = Date.now() + (price.maxTimeoutSeconds ?? 120) * 1000;
+    const rand = randomNonce().slice(2, 22);
+    if (cfg.secret) {
+      // Stateless: ord_<random>_<expiry>_<mac>. Any instance with the secret can check it.
+      const exp = String(Math.floor(expiresAt / 1000));
+      const mac = (await hmac(cfg.secret, macInput(rand, exp, resource, price.amount))).slice(0, 32);
+      return `ord_${rand}_${exp}_${mac}`;
+    }
     sweep();
-    const ref = price.orderId ?? `ord_${randomNonce().slice(2, 26)}`;
-    quotes.set(toOrderId(ref), {
-      ref,
-      amount: price.amount,
-      resource,
-      expiresAt: Date.now() + (price.maxTimeoutSeconds ?? 120) * 1000,
-    });
+    const ref = `ord_${rand}`;
+    quotes.set(toOrderId(ref), { ref, amount: price.amount, resource, expiresAt });
     return ref;
   }
 
+  /** The quoted order a perault payment is for, or why it can't be accepted. */
+  async function quotedOrder(price: Price, resource: string, payment: PaymentPayload): Promise<string | { error: string }> {
+    if (price.orderId !== undefined) return price.orderId;
+    const payload = payment.payload as { intent?: PaymentIntentJson; orderRef?: unknown };
+    const signedOrder = payload?.intent?.orderId?.toLowerCase() as Hex | undefined;
+    const unknown = { error: "Unknown or expired quote. Request the resource again for a new one." };
+    if (!signedOrder) return unknown;
+
+    if (cfg.secret && typeof payload.orderRef === "string") {
+      const ref = payload.orderRef;
+      const m = /^ord_([0-9a-f]{20})_(\d{1,12})_([0-9a-f]{32})$/.exec(ref);
+      if (!m) return unknown;
+      const [, rand, exp, mac] = m;
+      const want = (await hmac(cfg.secret, macInput(rand, exp, resource, price.amount))).slice(0, 32);
+      // Signed for this resource and price, not expired, and it's the order the agent signed.
+      if (!sameString(mac, want) || Number(exp) * 1000 < Date.now() || toOrderId(ref) !== signedOrder) return unknown;
+      return ref;
+    }
+    sweep();
+    const q = quotes.get(signedOrder);
+    return q && q.resource === resource ? q.ref : unknown;
+  }
+
   async function settle(body: FacilitatorRequest): Promise<SettleResponse | null> {
+    if (cfg.facilitator) {
+      try {
+        return await cfg.facilitator.settle(body);
+      } catch {
+        return null;
+      }
+    }
     try {
       const res = await doFetch(`${base}/settle`, {
         method: "POST",
@@ -136,8 +202,8 @@ export function createPaywall(cfg: PaywallConfig) {
 
   return {
     /** The 402 requirements for a price, e.g. to show a "pay with agent" button. */
-    requirements(price: Price, resource: string): PaymentRequirements[] {
-      return requirementsFor(price, resource, newQuote(price, resource));
+    async requirements(price: Price, resource: string): Promise<PaymentRequirements[]> {
+      return requirementsFor(price, resource, await newQuote(price, resource));
     },
 
     async protect(
@@ -149,33 +215,24 @@ export function createPaywall(cfg: PaywallConfig) {
       const resource = p.resource ?? request.url;
       const header = request.headers.get(PAYMENT_HEADER);
 
+      const fresh = async () => requirementsFor(p, resource, await newQuote(p, resource));
       if (!header) {
-        return paymentRequired(`${PAYMENT_HEADER} header is required`, requirementsFor(p, resource, newQuote(p, resource)));
+        return paymentRequired(`${PAYMENT_HEADER} header is required`, await fresh());
       }
       const payment = decodeHeader<PaymentPayload>(header);
-      const fresh = () => requirementsFor(p, resource, newQuote(p, resource));
       if (!payment || (payment.scheme !== "perault" && payment.scheme !== "exact")) {
-        return paymentRequired(`Malformed ${PAYMENT_HEADER} header`, fresh(), "invalid_payload");
+        return paymentRequired(`Malformed ${PAYMENT_HEADER} header`, await fresh(), "invalid_payload");
       }
       if (!schemes.includes(payment.scheme)) {
-        return paymentRequired(`Scheme '${payment.scheme}' is not accepted here`, fresh(), "invalid_scheme");
+        return paymentRequired(`Scheme '${payment.scheme}' is not accepted here`, await fresh(), "invalid_scheme");
       }
 
-      // perault: the agent signed a specific order. Find which one we quoted.
+      // perault: the agent signed a specific order. Check it's one we quoted.
       let orderRef: string | undefined;
       if (payment.scheme === "perault") {
-        const intent = (payment.payload as { intent?: PaymentIntentJson })?.intent;
-        const signedOrder = intent?.orderId?.toLowerCase() as Hex | undefined;
-        if (p.orderId !== undefined) {
-          orderRef = p.orderId;
-        } else {
-          sweep();
-          const q = signedOrder ? quotes.get(signedOrder) : undefined;
-          if (!q || q.resource !== resource) {
-            return paymentRequired("Unknown or expired quote. Request the resource again for a new one.", fresh(), "unknown_quote");
-          }
-          orderRef = q.ref;
-        }
+        const q = await quotedOrder(p, resource, payment);
+        if (typeof q !== "string") return paymentRequired(q.error, await fresh(), "unknown_quote");
+        orderRef = q;
       }
 
       const requirement = requirementsFor(p, resource, orderRef).find((r) => r.scheme === payment.scheme)!;
@@ -187,7 +244,7 @@ export function createPaywall(cfg: PaywallConfig) {
         );
       }
       if (!settlement.success) {
-        return paymentRequired(settlement.errorMessage ?? "Payment was not accepted", fresh(), settlement.errorReason);
+        return paymentRequired(settlement.errorMessage ?? "Payment was not accepted", await fresh(), settlement.errorReason);
       }
 
       const out = await handler(

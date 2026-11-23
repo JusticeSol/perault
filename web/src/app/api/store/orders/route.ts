@@ -1,8 +1,11 @@
-import { orders, storeConfig } from "@/lib/store-server";
+import { recentOrders, storeConfig } from "@/lib/store-server";
 
-/** GET /api/store/orders: what the store has sold since the server started, newest first. */
+/** GET /api/store/orders: what the store was paid in the last ~6 hours, read from the chain. */
 export async function GET() {
-  const list = [...orders().values()].sort((a, b) => b.at.localeCompare(a.at));
   const cfg = storeConfig();
-  return Response.json({ configured: Boolean(cfg.payTo), payTo: cfg.payTo ?? null, orders: list });
+  try {
+    return Response.json({ configured: Boolean(cfg.payTo), payTo: cfg.payTo ?? null, orders: await recentOrders() });
+  } catch (e) {
+    return Response.json({ configured: Boolean(cfg.payTo), payTo: cfg.payTo ?? null, orders: [], error: (e as Error).message.split("\n")[0] }, { status: 502 });
+  }
 }

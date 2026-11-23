@@ -10,7 +10,7 @@ import { join } from "node:path";
 import { createPublicClient, createWalletClient, http, type Address, type Hex, type PublicClient } from "viem";
 import { foundry } from "viem/chains";
 import { privateKeyToAccount, type PrivateKeyAccount } from "viem/accounts";
-import { PeraultClient } from "@perault/sdk";
+import { PeraultClient, intentToJson } from "@perault/sdk";
 import {
   PAYMENT_HEADER,
   PaymentError,
@@ -286,5 +286,64 @@ describe("agent buys from the store through x402 + Perault", () => {
       assert.match(e.message, /per-payment/);
       return true;
     });
+  });
+});
+
+describe("stateless quotes (serverless: every request may hit a different instance)", () => {
+  const SECRET = "test-secret-long-random-string";
+  let sid2: Hex;
+  let urlA: string, urlB: string;
+
+  before(async () => {
+    ({ sessionId: sid2 } = await ownerClient.openSession({
+      agent: agent.address, perTxCap: 4_000_000n, dailyCap: 10_000_000n, totalCap: 10_000_000n, expiresInSeconds: 3600, merchants: [STORE],
+    }));
+    // The facilitator in-process (as the Vercel app hosts it), and two store "instances" that
+    // share nothing but the secret.
+    const fac = createFacilitator({ network: net, publicClient: pub, walletClient: wallet(privateKeyToAccount(KEYS.relayer)) });
+    const mk = () => {
+      const pw = createPaywall({ facilitator: fac, secret: SECRET, payTo: STORE, network: net });
+      return createServer(toNodeListener((req) => pw.protect(req, { amount: 1_000_000n, description: "Socks", resource: "https://shop.example/buy?sku=socks" }, (p) => Response.json({ order: p.orderId, replayed: p.replayed }))));
+    };
+    const a = mk(), b = mk();
+    servers.push(a, b);
+    urlA = await listen(a);
+    urlB = await listen(b);
+  });
+
+  const agentClient = () => new PeraultClient({ publicClient: pub, vault: net.vault, chainId: 31337 });
+
+  test("quote from instance A, pay at instance B: accepted", async () => {
+    // Route the unpaid request to A and the paid retry to B.
+    let calls = 0;
+    const f = createPayingFetch({
+      perault: { client: agentClient(), signer: agent, sessionId: sid2 },
+      maxAmount: 5_000_000n,
+      network: net,
+      fetch: (input, init) => fetch(String(new Request(input, init).url).replace(/^http:\/\/[^/]+/, calls++ === 0 ? urlA : urlB), init ?? (input instanceof Request ? input : undefined)),
+    });
+    const res = await f(`${urlA}/buy?sku=socks`);
+    assert.equal(res.status, 200, await res.clone().text());
+    const j = (await res.json()) as { order: string };
+    assert.match(j.order, /^ord_[0-9a-f]{20}_\d+_[0-9a-f]{32}$/);
+  });
+
+  test("a forged or reused order reference is refused", async () => {
+    const quote = (await (await fetch(`${urlA}/buy?sku=socks`)).json()) as PaymentRequiredResponse;
+    const ref = String(quote.accepts.find((a) => a.scheme === "perault")!.extra!.orderId);
+    const c = agentClient();
+    const send = async (orderRef: string, signedRef: string) => {
+      const { intent, signature } = await c.signPayment(agent, { sessionId: sid2, merchant: STORE, amount: 1_000_000n, orderId: signedRef });
+      const header = Buffer.from(JSON.stringify({ x402Version: 1, scheme: "perault", network: net.name, payload: { signature, intent: intentToJson(intent), orderRef } })).toString("base64");
+      const r = await fetch(`${urlB}/buy?sku=socks`, { headers: { [PAYMENT_HEADER]: header } });
+      return { status: r.status, reason: ((await r.json()) as { reason?: string }).reason };
+    };
+    // Flip one character of the MAC: forged.
+    const forged = ref.slice(0, -1) + (ref.endsWith("0") ? "1" : "0");
+    assert.deepEqual(await send(forged, forged), { status: 402, reason: "unknown_quote" });
+    // A valid reference, but the agent signed a different order: mismatch.
+    assert.deepEqual(await send(ref, "something-else"), { status: 402, reason: "unknown_quote" });
+    // Made-up format.
+    assert.deepEqual(await send("ord_free_stuff", "ord_free_stuff"), { status: 402, reason: "unknown_quote" });
   });
 });

@@ -60,8 +60,12 @@ Failures come back as `402` with `{ error, reason, accepts }` (a fresh quote to 
 order. A captured header can't buy a different item: its signed order id only matches the quote
 it was made for.
 
-Quotes are kept in memory until they expire (`maxTimeoutSeconds`, default 120 s). On serverless
-or multi-instance deployments, pass your own `orderId` in the price instead.
+**Serverless and multiple instances:** pass `secret`. Quotes are then signed
+(`ord_<random>_<expiry>_<hmac>`, bound to the resource and price) and any instance with the
+secret can accept the paid retry; the agent client sends the plain reference along with its
+signed intent. Without `secret`, quotes live in the process's memory until they expire
+(`maxTimeoutSeconds`, default 120 s). To skip HTTP when the facilitator runs in the same app,
+pass `facilitator: createFacilitator({...})` instead of `facilitatorUrl`.
 
 ## Agent: a `fetch` that pays
 

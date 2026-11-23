@@ -52,6 +52,9 @@ export interface ExactPayload {
 export interface PeraultPayload {
   signature: Hex;
   intent: PaymentIntentJson;
+  /** The merchant's plain order reference (extra.orderId) whose hash the intent signs. Lets a
+   *  stateless merchant check a signed quote. Not trusted on its own: it must hash to intent.orderId. */
+  orderRef?: string;
 }
 
 /** Decoded `X-PAYMENT` header. */

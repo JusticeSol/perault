@@ -1,54 +1,175 @@
 import "server-only";
+import { PERAULT_DEPLOYMENTS, aevumTestnet, explorerTxUrl } from "@perault/sdk";
+import { AEVUM_TESTNET, createFacilitator, type Facilitator } from "@perault/x402";
 import { createPaywall, type Paywall } from "@perault/x402/merchant";
-import { isAddress, type Address } from "viem";
+import { createPublicClient, createWalletClient, formatUnits, http, isAddress, parseAbiItem, type Address, type Hex } from "viem";
+import { privateKeyToAccount } from "viem/accounts";
+import { CATALOG } from "./catalog";
 
 /**
- * Server side of the demo store: one paywall (it remembers quotes between the 402 and the paid
- * retry) and an in-memory order book. Both live on globalThis so dev hot-reloads keep them.
- * For production, put orders in a database and pass your own orderId to the paywall.
+ * Server side of the demo store, built to run on serverless hosting (Vercel):
+ *  - the x402 facilitator runs in-process when FACILITATOR_PRIVATE_KEY (the relayer) is set,
+ *    otherwise the store calls an external one at FACILITATOR_URL;
+ *  - quotes are signed with PAYWALL_SECRET, so a paid retry can land on any instance;
+ *  - the order list is read from the chain, so it's always complete and survives restarts.
+ * Instances are cached on globalThis so dev hot-reloads and warm functions reuse them.
  */
+
+const RPC = process.env.RPC_URL?.trim() || aevumTestnet.rpcUrls.default.http[0];
+
+export function storeConfig() {
+  const payTo = process.env.STORE_ADDRESS?.trim();
+  return {
+    payTo: payTo && isAddress(payTo) ? (payTo as Address) : undefined,
+    relayerKey: process.env.FACILITATOR_PRIVATE_KEY?.trim() || undefined,
+    facilitatorUrl: process.env.FACILITATOR_URL?.trim() || undefined,
+    apiKey: process.env.FACILITATOR_API_KEY?.trim() || undefined,
+    secret: process.env.PAYWALL_SECRET?.trim() || undefined,
+  };
+}
+
+interface Cache {
+  key: string;
+  facilitator: Facilitator | null;
+  paywall: Paywall | null;
+  orders?: { at: number; data: StoreOrder[] };
+}
+const g = globalThis as typeof globalThis & { __perault?: Cache };
+
+export const publicClient = createPublicClient({ chain: aevumTestnet, transport: http(RPC) });
+
+function state(): Cache {
+  const cfg = storeConfig();
+  const key = JSON.stringify(cfg);
+  if (g.__perault?.key === key) return g.__perault;
+
+  let facilitator: Facilitator | null = null;
+  if (cfg.relayerKey && /^0x[0-9a-fA-F]{64}$/.test(cfg.relayerKey)) {
+    const account = privateKeyToAccount(cfg.relayerKey as Hex);
+    facilitator = createFacilitator({
+      network: AEVUM_TESTNET,
+      publicClient,
+      walletClient: createWalletClient({ account, chain: aevumTestnet, transport: http(RPC) }),
+    });
+  }
+  const canSettle = facilitator || cfg.facilitatorUrl;
+  const paywall =
+    cfg.payTo && canSettle
+      ? createPaywall({
+          facilitator: facilitator ?? undefined,
+          facilitatorUrl: cfg.facilitatorUrl,
+          apiKey: cfg.apiKey,
+          secret: cfg.secret,
+          payTo: cfg.payTo,
+        })
+      : null;
+  g.__perault = { key, facilitator, paywall };
+  return g.__perault;
+}
+
+export const getFacilitator = () => state().facilitator;
+export const getPaywall = () => state().paywall;
+
+// ------------------------------------------------------------------ orders, read from the chain
+
 export interface StoreOrder {
   id: string;
-  sku: string;
   name: string;
   price: string;
   scheme: "perault" | "exact";
   payer?: string;
   tx: string;
+  explorer: string;
+  block: string;
   at: string;
 }
 
-interface StoreState {
-  paywall: Paywall | null;
-  orders: Map<string, StoreOrder>;
-  config: string;
+/** ≈ 6 hours of Aevum blocks; eth_getLogs is capped at 1,000 blocks per call. */
+const LOOKBACK = 20_000n;
+const CHUNK = 1_000n;
+const transferEvent = parseAbiItem("event Transfer(address indexed from, address indexed to, uint256 value)");
+const paidEvent = parseAbiItem(
+  "event Paid(bytes32 indexed sessionId, address indexed merchant, bytes32 indexed orderId, address owner, address agent, uint256 amount, bytes32 nonce)",
+);
+
+/** The demo catalogue has one product per price, so a payment's amount names the item. */
+function itemFor(amount: bigint): string {
+  return CATALOG.find((p) => p.price === amount)?.name ?? `Payment of ${formatUnits(amount, 6)} tUSD8`;
 }
 
-const g = globalThis as typeof globalThis & { __peraultStore?: StoreState };
-
-export function storeConfig() {
-  const payTo = process.env.STORE_ADDRESS?.trim();
-  const facilitatorUrl = process.env.FACILITATOR_URL?.trim() || "http://localhost:4020";
-  const apiKey = process.env.FACILITATOR_API_KEY?.trim() || undefined;
-  return { payTo: payTo && isAddress(payTo) ? (payTo as Address) : undefined, facilitatorUrl, apiKey };
+async function scan<T>(from: bigint, to: bigint, fetch: (a: bigint, b: bigint) => Promise<T[]>): Promise<T[]> {
+  const ranges: [bigint, bigint][] = [];
+  for (let s = from; s <= to; s += CHUNK) ranges.push([s, s + CHUNK - 1n < to ? s + CHUNK - 1n : to]);
+  const out: T[][] = new Array(ranges.length);
+  let next = 0;
+  await Promise.all(
+    Array.from({ length: Math.min(6, ranges.length) }, async () => {
+      while (next < ranges.length) {
+        const i = next++;
+        out[i] = await fetch(ranges[i][0], ranges[i][1]);
+      }
+    }),
+  );
+  return out.flat();
 }
 
-function state(): StoreState {
-  const cfg = storeConfig();
-  const key = JSON.stringify(cfg);
-  if (!g.__peraultStore) g.__peraultStore = { paywall: null, orders: new Map(), config: "" };
-  const s = g.__peraultStore;
-  if (s.config !== key) {
-    s.paywall = cfg.payTo ? createPaywall({ facilitatorUrl: cfg.facilitatorUrl, apiKey: cfg.apiKey, payTo: cfg.payTo }) : null;
-    s.config = key;
-  }
-  return s;
-}
+/**
+ * Everything the store was paid in the last ~6 hours, newest first: SpendVault payments to the
+ * store (agents) and direct tUSD8 transfers to it (wallets, via x402 `exact`). Cached for 8 s.
+ */
+export async function recentOrders(): Promise<StoreOrder[]> {
+  const s = state();
+  const payTo = storeConfig().payTo;
+  if (!payTo) return [];
+  if (s.orders && Date.now() - s.orders.at < 8_000) return s.orders.data;
 
-export function getPaywall(): Paywall | null {
-  return state().paywall;
-}
+  const vault = PERAULT_DEPLOYMENTS[44005].vault;
+  const token = PERAULT_DEPLOYMENTS[44005].token;
+  const latest = await publicClient.getBlockNumber({ cacheTime: 0 });
+  const from = latest > LOOKBACK ? latest - LOOKBACK : 0n;
 
-export function orders(): Map<string, StoreOrder> {
-  return state().orders;
+  const [paid, transfers] = await Promise.all([
+    scan(from, latest, (a, b) => publicClient.getLogs({ address: vault, event: paidEvent, args: { merchant: payTo }, fromBlock: a, toBlock: b })),
+    scan(from, latest, (a, b) => publicClient.getLogs({ address: token, event: transferEvent, args: { to: payTo }, fromBlock: a, toBlock: b })),
+  ]);
+
+  const rows: (Omit<StoreOrder, "at"> & { blockNumber: bigint })[] = [
+    ...paid.map((l) => ({
+      id: l.args.orderId!,
+      name: itemFor(l.args.amount!),
+      price: formatUnits(l.args.amount!, 6),
+      scheme: "perault" as const,
+      payer: l.args.owner,
+      tx: l.transactionHash!,
+      explorer: explorerTxUrl(l.transactionHash!),
+      block: l.blockNumber!.toString(),
+      blockNumber: l.blockNumber!,
+    })),
+    // Agent payments also move tokens vault -> store; those are already listed above.
+    ...transfers
+      .filter((l) => l.args.from?.toLowerCase() !== vault.toLowerCase())
+      .map((l) => ({
+        id: `${l.transactionHash}-${l.logIndex}`,
+        name: itemFor(l.args.value!),
+        price: formatUnits(l.args.value!, 6),
+        scheme: "exact" as const,
+        payer: l.args.from,
+        tx: l.transactionHash!,
+        explorer: explorerTxUrl(l.transactionHash!),
+        block: l.blockNumber!.toString(),
+        blockNumber: l.blockNumber!,
+      })),
+  ].sort((a, b) => (a.blockNumber > b.blockNumber ? -1 : 1));
+
+  // Block times, one lookup per distinct block (a handful at most).
+  const times = new Map<bigint, string>();
+  await Promise.all(
+    [...new Set(rows.map((r) => r.blockNumber))].map(async (n) => {
+      const b = await publicClient.getBlock({ blockNumber: n });
+      times.set(n, new Date(Number(b.timestamp) * 1000).toISOString());
+    }),
+  );
+  const data = rows.map(({ blockNumber, ...r }) => ({ ...r, at: times.get(blockNumber) ?? "" }));
+  s.orders = { at: Date.now(), data };
+  return data;
 }

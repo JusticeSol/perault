@@ -14,7 +14,7 @@ import { explainAny } from "@/lib/perault";
 
 interface Order {
   id: string;
-  sku: string;
+  sku?: string;
   name: string;
   price: string;
   scheme: "perault" | "exact";
@@ -125,7 +125,7 @@ export default function StorePage() {
         <section className="shop-section" aria-labelledby="orders-h">
           <div className="inline" style={{ justifyContent: "space-between" }}>
             <h2 id="orders-h">Recent orders</h2>
-            <span className="fine">Paid to {orders.data?.payTo ? short(orders.data.payTo) : "the shop"}, since the shop last restarted</span>
+            <span className="fine">Paid to {orders.data?.payTo ? short(orders.data.payTo) : "the shop"} in the last 6 hours, read from the chain</span>
           </div>
           {!orders.data?.orders.length ? (
             <p className="fine">No orders yet. The first one will show up here a few seconds after it&apos;s paid.</p>

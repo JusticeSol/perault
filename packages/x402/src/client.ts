@@ -116,7 +116,7 @@ export function createPayingFetch(cfg: PayingFetchConfig) {
         x402Version: X402_VERSION,
         scheme: "perault",
         network: req.network,
-        payload: { signature, intent: intentToJson(intent) },
+        payload: { signature, intent: intentToJson(intent), orderRef },
       };
       return { header: encodeHeader(payload), req };
     }
