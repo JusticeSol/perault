@@ -43,11 +43,51 @@ export function TxLink({ hash }: { hash?: string }) {
   const { net } = useNetwork();
   if (!hash) return null;
   return net.hasExplorer ? (
-    <a href={txUrl(hash)} target="_blank" rel="noreferrer" className="mono">
-      {short(hash, 6)} ↗
+    <a href={txUrl(hash)} target="_blank" rel="noreferrer" title={`View ${hash} on the Aevum explorer`}>
+      {short(hash, 6)}
     </a>
   ) : (
-    <span className="mono">{short(hash, 6)}</span>
+    <span title={hash}>{short(hash, 6)}</span>
+  );
+}
+
+/**
+ * The agent's on/off switch. On: lever right, lit. First press arms it (lever to the middle,
+ * "Turn off?"); a second press within 4 s calls onTurnOff. Off is permanent: it can't be flipped back.
+ */
+export function AgentSwitch({ on, onTurnOff, disabled, offLabel }: { on: boolean; onTurnOff: () => void; disabled?: boolean; offLabel: string }) {
+  const [armed, setArmed] = useState(false);
+  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  useEffect(() => () => clearTimeout(timer.current), []);
+  const label = !on ? "Off" : armed ? "Turn off?" : "On";
+  const detail = !on ? offLabel : armed ? "Press again to stop this agent" : "Agent can spend";
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={on}
+      aria-label={`Agent spending: ${label}. ${detail}`}
+      className={`switch ${armed ? "armed" : ""}`}
+      disabled={!on || disabled}
+      onClick={() => {
+        if (!armed) {
+          setArmed(true);
+          timer.current = setTimeout(() => setArmed(false), 4000);
+          return;
+        }
+        clearTimeout(timer.current);
+        setArmed(false);
+        onTurnOff();
+      }}
+    >
+      <span className="switch-track" aria-hidden="true">
+        <span className="switch-knob" />
+      </span>
+      <span className="switch-label">
+        <strong>{label}</strong>
+        <span>{detail}</span>
+      </span>
+    </button>
   );
 }
 
@@ -144,7 +184,7 @@ export function Meter({ used, cap, label }: { used: bigint; cap: bigint; label: 
           {money(used)} / {money(cap)}
         </span>
       </div>
-      <div className={`progress ${pct >= 100 ? "full" : pct >= 80 ? "high" : ""}`} role="meter" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100} aria-label={label}>
+      <div className={`progress ${pct >= 100 ? "full" : ""}`} role="meter" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100} aria-label={label}>
         <span style={{ width: `${Math.min(pct, 100)}%` }} />
       </div>
     </div>

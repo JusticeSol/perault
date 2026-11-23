@@ -74,27 +74,27 @@ export function PaymentsFeed({ sessionIds, onNewPayment }: { sessionIds: Hex[]; 
 
   return (
     <section className="card flush" aria-labelledby="feed-h">
-      <div className="row-between" style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", gap: 10, padding: "18px 20px", borderBottom: "1px solid var(--line)" }}>
+      <div className="module-head">
         <div>
-          <h2 id="feed-h">Agent payments</h2>
+          <h2 id="feed-h">Payments by your agents</h2>
           <p className="fine">
-            {items.length} payment{items.length === 1 ? "" : "s"} · {money(total)} tUSD8 in the last ~6 hours, newest first
+            {items.length === 0 ? "From the last 6 hours, newest first." : `${items.length} in the last 6 hours, ${money(total)} tUSD8 in all. Newest first.`}
           </p>
         </div>
         <span className="live" aria-live="polite">
           {state === "loading" ? (
             "Loading…"
           ) : state === "error" ? (
-            <span className="err">Reconnecting… {error}</span>
+            <span className="err">Lost the connection, retrying. {error}</span>
           ) : (
             <>
-              <span className="dot" aria-hidden="true" /> Live, every 5 s
+              <span className="dot" aria-hidden="true" /> Checking every 5 seconds
             </>
           )}
         </span>
       </div>
       {items.length === 0 ? (
-        <p className="empty">{state === "loading" ? "Reading recent blocks…" : "No agent payments yet. They appear here within seconds."}</p>
+        <p className="empty">{state === "loading" ? "Reading recent blocks…" : "No payments yet. When an agent pays, it shows up here within seconds."}</p>
       ) : (
         <div className="table-wrap">
           <table className="data">

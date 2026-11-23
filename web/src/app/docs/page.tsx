@@ -35,7 +35,6 @@ export default function DocsPage() {
     <main className="shell">
       <div className="page-head">
         <div>
-          <p className="eyebrow">Docs</p>
           <h1>Build on Aevum testnet</h1>
           <p className="lede">
             Everything in this kit, on one page: run it locally, deploy to chain 44005, and the few places where Aevum behaves differently

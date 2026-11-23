@@ -55,7 +55,7 @@ export default function ActivityPage() {
     <main className="shell">
       <div className="page-head">
         <div>
-          <p className="eyebrow">Example · reading events</p>
+          <p className="eyebrow">From the Aevum starter kit: reading contract events.</p>
           <h1>Payment activity</h1>
           <p className="lede">
             Every <code>Paid</code> event from your Checkout. Aevum serves at most 1,000 blocks per <code>eth_getLogs</code> call, so the kit

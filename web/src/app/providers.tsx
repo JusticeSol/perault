@@ -1,14 +1,15 @@
 "use client";
 
 import "@rainbow-me/rainbowkit/styles.css";
-import { RainbowKitProvider, darkTheme } from "@rainbow-me/rainbowkit";
+import { RainbowKitProvider, lightTheme } from "@rainbow-me/rainbowkit";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useState, type ReactNode } from "react";
 import { WagmiProvider } from "wagmi";
 import { NetworkProvider, useNetwork } from "@/lib/network";
 import { wagmiConfig } from "@/lib/wagmi";
 
-const theme = darkTheme({ accentColor: "#0257FF", borderRadius: "medium" });
+// Matches the control-panel palette: graphite keys on light grey, orange reserved for the on/off switch.
+const theme = lightTheme({ accentColor: "#1F1F1D", accentColorForeground: "#EDECE8", borderRadius: "small", fontStack: "system" });
 
 /** Connect the wallet straight to the network picked in the header, not always the first one. */
 function RainbowKit({ children }: { children: ReactNode }) {

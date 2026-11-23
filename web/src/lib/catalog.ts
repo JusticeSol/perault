@@ -9,12 +9,12 @@ export interface Product {
   blurb: string;
   /** Base units: 3_500_000n = 3.50 tUSD8. */
   price: bigint;
-  /** Two colours for the product swatch (no image assets needed). */
+  /** [background, garment colour] for the product panel (no image assets needed). */
   swatch: [string, string];
   tag?: string;
 }
 
-export const STORE_NAME = process.env.NEXT_PUBLIC_STORE_NAME?.trim() || "Perault Demo Store";
+export const STORE_NAME = process.env.NEXT_PUBLIC_STORE_NAME?.trim() || "Demo Label";
 
 export const CATALOG: Product[] = [
   {
@@ -22,7 +22,7 @@ export const CATALOG: Product[] = [
     name: "Heavyweight hoodie, black, M",
     blurb: "450 gsm brushed cotton, dropped shoulder, kangaroo pocket.",
     price: 3_500_000n,
-    swatch: ["#1b1d22", "#3a3f4b"],
+    swatch: ["#d9dadf", "#24262b"],
     tag: "Best seller",
   },
   {
@@ -30,21 +30,21 @@ export const CATALOG: Product[] = [
     name: "Boxy tee, off-white, L",
     blurb: "220 gsm combed cotton, ribbed collar, relaxed fit.",
     price: 2_000_000n,
-    swatch: ["#e9e4da", "#c9c2b4"],
+    swatch: ["#c4cbd6", "#f2efe8"],
   },
   {
     sku: "socks-white",
     name: "Crew socks, white",
     blurb: "Cushioned sole, reinforced heel and toe. One size.",
     price: 1_000_000n,
-    swatch: ["#f4f4f4", "#d7dbe2"],
+    swatch: ["#2f3a52", "#f4f5f7"],
   },
   {
     sku: "jacket-denim-L",
     name: "Selvedge denim jacket, L",
-    blurb: "14 oz raw selvedge, copper buttons. Over the demo agent's 4.00 cap.",
+    blurb: "14 oz raw selvedge denim, copper buttons, boxy cut.",
     price: 6_000_000n,
-    swatch: ["#1f3a5f", "#34598a"],
+    swatch: ["#e3e5ea", "#2b4a75"],
     tag: "Premium",
   },
 ];

@@ -68,7 +68,7 @@ export function OpenSessionCard({ onOpened }: { onOpened: () => void }) {
     if (!writer || !valid || !p || !d || !t) return;
     const agentKey = generatedKey && isAddressEqual(privateKeyToAccount(generatedKey).address, agent as Address) ? generatedKey : null;
     await tx.run(
-      "Open session",
+      "Give budget",
       () =>
         writer.openSession({
           agent: getAddress(agent),
@@ -105,7 +105,7 @@ export function OpenSessionCard({ onOpened }: { onOpened: () => void }) {
     );
     return (
       <section className="card stack" aria-labelledby="open-h">
-        <h2 id="open-h">Session opened</h2>
+        <h2 id="open-h">Budget ready</h2>
         <TxStatus state={tx.state} />
         <dl className="kv">
           <dt>Session ID</dt>
@@ -118,7 +118,7 @@ export function OpenSessionCard({ onOpened }: { onOpened: () => void }) {
         {opened.agentKey && (
           <div className="notice warn">
             <strong>Agent key: shown once, not stored anywhere</strong>
-            <span>Copy it into your agent&apos;s config now. Its only power is this session&apos;s budget, and revoking the session makes it worthless.</span>
+            <span>Copy it into your agent&apos;s config now. It can only spend this budget, and turning the budget off makes it worthless.</span>
             <div className="secret">{opened.agentKey}</div>
             <div className="inline">
               <CopyButton text={opened.agentKey} label="Copy key" />
@@ -145,7 +145,7 @@ export function OpenSessionCard({ onOpened }: { onOpened: () => void }) {
             tx.reset();
           }}
         >
-          Open another session
+          Give another agent a budget
         </button>
       </section>
     );
@@ -210,7 +210,7 @@ export function OpenSessionCard({ onOpened }: { onOpened: () => void }) {
         {errors.caps && <span className="err">{errors.caps}</span>}
 
         <label>
-          Allowed merchants
+          Shops it can pay
           <textarea
             className="field"
             placeholder="0x… one per line"
@@ -218,7 +218,7 @@ export function OpenSessionCard({ onOpened }: { onOpened: () => void }) {
             onChange={(e) => setMerchantsText(e.target.value)}
             aria-invalid={Boolean(errors.merchants)}
           />
-          <span className="hint">The agent can pay these addresses and nobody else. You can add or remove them later.</span>
+          <span className="hint">The agent can pay these addresses and nobody else. You can change the list later.</span>
           {errors.merchants && <span className="err">{errors.merchants}</span>}
         </label>
       </div>
@@ -230,7 +230,7 @@ export function OpenSessionCard({ onOpened }: { onOpened: () => void }) {
           <strong>
             {merchants.length} merchant{merchants.length === 1 ? "" : "s"}
           </strong>
-          , for <strong>{durationLabel}</strong>. You can revoke it at any time.
+          , for <strong>{durationLabel}</strong>. You can turn it off at any time.
         </div>
       )}
       {warnings.map((w) => (
@@ -239,7 +239,7 @@ export function OpenSessionCard({ onOpened }: { onOpened: () => void }) {
         </div>
       ))}
       <button type="button" className="btn big" disabled={!writer || !valid || busy} onClick={open}>
-        {writer ? "Open session" : "Connect your wallet to open a session"}
+        {writer ? "Give budget" : "Connect your wallet first"}
       </button>
       <TxStatus state={tx.state} onDismiss={tx.reset} />
     </section>

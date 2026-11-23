@@ -178,7 +178,7 @@ export default function CheckoutPage() {
     <main className="shell">
       <div className="page-head">
         <div>
-          <p className="eyebrow">Example · Checkout.sol</p>
+          <p className="eyebrow">From the Aevum starter kit: a one-off checkout with Checkout.sol.</p>
           <h1>Pay with tUSD8</h1>
           <p className="lede">A neutral checkout you can turn into an invoice, a payroll run or a crowdfund pledge. Try both payment modes.</p>
         </div>

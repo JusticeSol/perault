@@ -61,64 +61,64 @@ export default function DashboardPage() {
     <main className="shell">
       <div className="page-head">
         <div>
-          <p className="eyebrow">Perault · owner dashboard</p>
-          <h1>Budgets for your AI agents</h1>
+          <h1>Your agents&apos; budgets</h1>
           <p className="lede">
-            Fund the vault, give each agent a capped session, watch every payment land on-chain, and revoke any session with one click.
+            Each agent gets a budget with limits you choose. Every payment it makes shows up below, and its switch turns it off at once.
           </p>
         </div>
-        {address && (
-          <div className="score">
-            <span className="score-num">{active.length}</span>
-            <span className="fine">active session{active.length === 1 ? "" : "s"}</span>
-          </div>
-        )}
       </div>
 
       {!vault ? (
         <div className="card empty">
-          No Perault vault on {net.label}. Set <code>NEXT_PUBLIC_VAULT_{net.key.toUpperCase()}</code> in <code>web/.env.local</code>.
+          No Perault vault is set for {net.label}. Add <code>NEXT_PUBLIC_VAULT_{net.key.toUpperCase()}</code> to <code>web/.env.local</code>.
         </div>
       ) : !isConnected ? (
         <div className="card empty stack" style={{ alignItems: "center" }}>
-          <p>Connect the wallet that owns the vault funds to manage your agents.</p>
+          <p>Connect the wallet that funds your agents to see their budgets.</p>
           <ConnectButton />
         </div>
       ) : (
         <>
+          <section className="card flush" aria-labelledby="agents-h">
+            <div className="module-head">
+              <div>
+                <h2 id="agents-h">Agents</h2>
+                <p className="fine">
+                  {active.length} of {rows.length} on. Signed in as {short(address)}.
+                </p>
+              </div>
+            </div>
+            {sessions.isLoading && <p className="empty">Reading your agents…</p>}
+            {sessions.error && <p className="empty err">Couldn&apos;t read your agents: {(sessions.error as Error).message}</p>}
+            {sessions.data && rows.length === 0 && <p className="empty">No agents yet. Give one a budget below.</p>}
+            {rows.map((r) => (
+              <SessionCard key={r.sessionId} row={r} onChange={refreshAll} />
+            ))}
+            {active.length > 0 && (
+              <div className="kill">
+                <span className="fine">Something wrong? Stop every agent in one transaction.</span>
+                <ConfirmButton
+                  label={`Turn off all agents (${active.length})`}
+                  confirmLabel="Press again to stop them all"
+                  className="btn danger small"
+                  disabled={!writer || busy}
+                  onConfirm={() => writer && killAll.run("Turn off all agents", () => writer.revokeAll(), refreshAll)}
+                />
+              </div>
+            )}
+            {killAll.state.status !== "idle" && (
+              <div style={{ padding: "0 22px 18px" }}>
+                <TxStatus state={killAll.state} onDismiss={killAll.reset} />
+              </div>
+            )}
+          </section>
+
           <div className="grid-2">
             <VaultCard vaultBalance={vaultBalance.data} walletBalance={walletBalance.data} committed={committed} onChange={refreshAll} />
             <OpenSessionCard onOpened={refreshAll} />
           </div>
 
           <PaymentsFeed sessionIds={rows.map((r) => r.sessionId)} onNewPayment={refreshAll} />
-
-          <section className="card stack" aria-labelledby="sessions-h">
-            <div className="session-head">
-              <div>
-                <h2 id="sessions-h">Sessions</h2>
-                <p className="sub" style={{ marginBottom: 0 }}>
-                  Owner {short(address)} · vault {short(vault)} · {rows.length} session{rows.length === 1 ? "" : "s"}
-                </p>
-              </div>
-              {active.length > 0 && (
-                <ConfirmButton
-                  label={`Revoke all (${active.length})`}
-                  confirmLabel="Click again: stop every agent now"
-                  className="btn danger small"
-                  disabled={!writer || busy}
-                  onConfirm={() => writer && killAll.run("Revoke all sessions", () => writer.revokeAll(), refreshAll)}
-                />
-              )}
-            </div>
-            <TxStatus state={killAll.state} onDismiss={killAll.reset} />
-            {sessions.isLoading && <p className="fine">Reading your sessions…</p>}
-            {sessions.error && <p className="err">Couldn&apos;t read sessions: {(sessions.error as Error).message}</p>}
-            {sessions.data && rows.length === 0 && <p className="empty">No sessions yet. Give an agent a budget above.</p>}
-            {rows.map((r) => (
-              <SessionCard key={r.sessionId} row={r} onChange={refreshAll} />
-            ))}
-          </section>
         </>
       )}
     </main>

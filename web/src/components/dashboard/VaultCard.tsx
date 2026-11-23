@@ -12,7 +12,7 @@ export function VaultCard({
 }: {
   vaultBalance?: bigint;
   walletBalance?: bigint;
-  /** Sum of what active sessions could still spend (may exceed the vault balance). */
+  /** Sum of what agents that are on could still spend (may exceed the vault balance). */
   committed: bigint;
   onChange: () => void;
 }) {
@@ -30,32 +30,24 @@ export function VaultCard({
     <section className="card stack" aria-labelledby="vault-h">
       <div>
         <h2 id="vault-h">Vault</h2>
-        <p className="sub">Agents spend from here, never from your wallet. Only you can withdraw.</p>
+        <p className="sub" style={{ marginBottom: 0 }}>
+          Your agents spend from here, never from your wallet. Only you can take money out.
+        </p>
       </div>
-      <div className="stats">
-        <div className="stat">
-          <span className="stat-num">
-            {money(vaultBalance)} <small>tUSD8</small>
-          </span>
-          <span className="stat-label">in the vault</span>
+
+      <div className="readout" aria-live="polite">
+        <div className="readout-value">
+          {money(vaultBalance)}
+          <small>tUSD8</small>
         </div>
-        <div className="stat">
-          <span className="stat-num">
-            {money(walletBalance)} <small>tUSD8</small>
-          </span>
-          <span className="stat-label">in your wallet</span>
-        </div>
-        <div className="stat">
-          <span className="stat-num">
-            {money(committed)} <small>tUSD8</small>
-          </span>
-          <span className="stat-label">active sessions can still spend</span>
-        </div>
+        <p className="readout-note">
+          Agents that are on can draw up to {money(committed)} of it. Your wallet holds {money(walletBalance)}.
+        </p>
       </div>
 
       <div className="form">
         <label>
-          Deposit
+          Add money
           <div className="inline">
             <input
               className="field"
@@ -71,23 +63,23 @@ export function VaultCard({
               disabled={!walletBalance}
               onClick={() => walletBalance !== undefined && setDep(money(walletBalance).replace(/,/g, ""))}
             >
-              Max
+              All of it
             </button>
             <button
               type="button"
               className="btn small"
               disabled={!writer || !depAmount || depTooMuch || busy}
-              onClick={() => writer && depAmount && tx.run(`Deposit ${money(depAmount)} tUSD8`, () => writer.deposit(depAmount), () => { setDep(""); onChange(); })}
+              onClick={() => writer && depAmount && tx.run(`Add ${money(depAmount)} tUSD8`, () => writer.deposit(depAmount), () => { setDep(""); onChange(); })}
             >
-              Deposit
+              Add money
             </button>
           </div>
-          <span className="hint">Approves the vault first if needed, so your wallet may ask twice.</span>
-          {depTooMuch && <span className="err">More than your wallet holds.</span>}
+          <span className="hint">The first time, your wallet asks twice: once to allow the vault, once to move the money.</span>
+          {depTooMuch && <span className="err">That&apos;s more than your wallet holds.</span>}
         </label>
 
         <label>
-          Withdraw
+          Take money out
           <div className="inline">
             <input
               className="field"
@@ -103,18 +95,18 @@ export function VaultCard({
               disabled={!vaultBalance}
               onClick={() => vaultBalance !== undefined && setWd(money(vaultBalance).replace(/,/g, ""))}
             >
-              Max
+              All of it
             </button>
             <button
               type="button"
               className="btn secondary small"
               disabled={!writer || !wdAmount || wdTooMuch || busy}
-              onClick={() => writer && wdAmount && tx.run(`Withdraw ${money(wdAmount)} tUSD8`, () => writer.withdraw(wdAmount), () => { setWd(""); onChange(); })}
+              onClick={() => writer && wdAmount && tx.run(`Take out ${money(wdAmount)} tUSD8`, () => writer.withdraw(wdAmount), () => { setWd(""); onChange(); })}
             >
-              Withdraw
+              Take out
             </button>
           </div>
-          {wdTooMuch && <span className="err">More than the vault holds for you.</span>}
+          {wdTooMuch && <span className="err">That&apos;s more than the vault holds for you.</span>}
         </label>
       </div>
       <TxStatus state={tx.state} onDismiss={tx.reset} />

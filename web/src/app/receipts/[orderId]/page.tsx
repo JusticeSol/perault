@@ -65,7 +65,7 @@ export default function ReceiptPage() {
   return (
     <main className="shell" style={{ maxWidth: 760 }}>
       <div>
-        <p className="eyebrow">Receipt · read from {appChain.name}</p>
+        <p className="eyebrow">Receipt, read live from {appChain.name}.</p>
         <h1>Order {orderLabel(orderId as Hex)}</h1>
       </div>
 

@@ -102,7 +102,7 @@ export default function SetupPage() {
     <main className="shell">
       <section className="page-head">
         <div>
-          <p className="eyebrow">Step 0 · Before you build</p>
+          <p className="eyebrow">From the Aevum starter kit: check your setup before you build.</p>
           <h1>Is your setup ready for Aevum?</h1>
           <p className="lede">We check your wallet, network, balances and contract, and tell you exactly what to fix.</p>
         </div>
