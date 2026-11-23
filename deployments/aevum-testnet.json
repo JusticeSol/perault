@@ -133,5 +133,42 @@
         "agentGas": "0"
       }
     }
+  ],
+  "publicSite": "https://perault.vercel.app",
+  "agentRuns": [
+    {
+      "date": "2026-11-22",
+      "agent": "Claude Code via @perault/mcp",
+      "sessionId": "0x9167fc2eb429dcd0c04708d7c0aef68f8078ac372261d8b74038017549ab184b",
+      "purchases": [
+        {
+          "sku": "hoodie-black-M",
+          "price": "3.50",
+          "result": "paid",
+          "tx": "0x261b7403288011006ee56868fabb4700e30c88948abfc5afa7e17840c3ae3a26"
+        },
+        {
+          "sku": "jacket-denim-L",
+          "price": "6.00",
+          "result": "refused before signing: PriceTooHigh (4.00 cap)"
+        }
+      ]
+    }
+  ],
+  "walletRuns": [
+    {
+      "date": "2026-11-23",
+      "site": "https://perault.vercel.app/store",
+      "scheme": "exact (x402, EIP-3009)",
+      "payer": "0x3a3d2Ba50d6C94081BC0e53a8D37418e75Bf2Bdc",
+      "purchases": [
+        {
+          "sku": "socks-white",
+          "price": "1.00",
+          "result": "paid",
+          "tx": "0xcf873a7958e1c777b065ace458757e0a385d8b4dfce628b94b6357f855457a57"
+        }
+      ]
+    }
   ]
 }
