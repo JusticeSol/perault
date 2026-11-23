@@ -8,8 +8,8 @@ import { WagmiProvider } from "wagmi";
 import { NetworkProvider, useNetwork } from "@/lib/network";
 import { wagmiConfig } from "@/lib/wagmi";
 
-// Matches the control-panel palette: graphite keys on light grey, orange reserved for the on/off switch.
-const theme = lightTheme({ accentColor: "#1F1F1D", accentColorForeground: "#EDECE8", borderRadius: "small", fontStack: "system" });
+// Matches the denim palette: denim keys on white.
+const theme = lightTheme({ accentColor: "#1C2541", accentColorForeground: "#FFFFFF", borderRadius: "small", fontStack: "system" });
 
 /** Connect the wallet straight to the network picked in the header, not always the first one. */
 function RainbowKit({ children }: { children: ReactNode }) {
