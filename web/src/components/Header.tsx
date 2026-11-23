@@ -11,10 +11,10 @@ import { useNetwork } from "@/lib/network";
 const links = [
   { href: "/dashboard", label: "Dashboard" },
   { href: "/store", label: "Store" },
-  { href: "/", label: "Setup" },
-  { href: "/checkout", label: "Checkout" },
-  { href: "/activity", label: "Activity" },
   { href: "/docs", label: "Docs" },
+  // The starter kit's Checkout (/checkout) and Activity (/activity) pages still work by URL; they're
+  // examples for the kit's own contract, not part of Perault, so they're not in the menu.
+  { href: "/setup", label: "Setup" },
 ];
 
 export function Header() {
@@ -33,7 +33,7 @@ export function Header() {
           </Link>
           <nav className="nav" aria-label="Main">
             {links.map((l) => {
-              const active = l.href === "/" ? pathname === "/" : pathname.startsWith(l.href);
+              const active = pathname.startsWith(l.href);
               return (
                 <Link key={l.href} href={l.href} aria-current={active ? "page" : undefined}>
                   {l.label}

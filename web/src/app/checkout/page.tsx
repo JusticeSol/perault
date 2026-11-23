@@ -262,7 +262,7 @@ export default function CheckoutPage() {
             <div className="notice warn" role="status">
               <strong>Not enough {token.symbol}</strong>
               <span>
-                This order needs {demoOrder.total} {token.symbol}. See the <Link href="/">Setup</Link> page for how to get test tokens.
+                This order needs {demoOrder.total} {token.symbol}. See the <Link href="/setup">Setup</Link> page for how to get test tokens.
               </span>
             </div>
           )}
