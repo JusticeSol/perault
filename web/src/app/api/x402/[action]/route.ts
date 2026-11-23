@@ -1,6 +1,6 @@
 import { timingSafeEqual } from "node:crypto";
 import type { FacilitatorRequest } from "@perault/x402";
-import { getFacilitator, storeConfig } from "@/lib/store-server";
+import { configReport, getFacilitator, storeConfig } from "@/lib/store-server";
 
 /**
  * A public x402 facilitator for Aevum, hosted with the site:
@@ -15,7 +15,7 @@ export const maxDuration = 60;
 const json = (body: unknown, status = 200) => Response.json(body, { status, headers: { "cache-control": "no-store" } });
 
 function notConfigured() {
-  return json({ error: "not_configured", message: "This site has no facilitator: set FACILITATOR_PRIVATE_KEY." }, 503);
+  return json({ error: "not_configured", message: "This site has no facilitator: set FACILITATOR_PRIVATE_KEY.", settings: configReport() }, 503);
 }
 
 function authorized(req: Request, key: string): boolean {

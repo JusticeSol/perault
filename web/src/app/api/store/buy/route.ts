@@ -1,6 +1,6 @@
 import { formatUnits } from "viem";
 import { productBySku } from "@/lib/catalog";
-import { getPaywall, storeConfig } from "@/lib/store-server";
+import { configReport, getPaywall, storeConfig } from "@/lib/store-server";
 
 // Settling waits for Aevum to confirm the payment; give it room on serverless hosts.
 export const maxDuration = 60;
@@ -20,7 +20,7 @@ export async function GET(req: Request) {
   const paywall = getPaywall();
   if (!paywall) {
     return Response.json(
-      { error: "Checkout isn't set up: set STORE_ADDRESS and FACILITATOR_PRIVATE_KEY (or FACILITATOR_URL) for the site." },
+      { error: "Checkout isn't set up: set STORE_ADDRESS and FACILITATOR_PRIVATE_KEY (or FACILITATOR_URL) for the site.", settings: configReport() },
       { status: 503 },
     );
   }

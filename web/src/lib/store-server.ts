@@ -17,14 +17,40 @@ import { CATALOG } from "./catalog";
 
 const RPC = process.env.RPC_URL?.trim() || aevumTestnet.rpcUrls.default.http[0];
 
+/** Tolerates what dashboards add when pasting: surrounding quotes, whitespace, a missing 0x. */
+function clean(v: string | undefined): string | undefined {
+  const t = v?.trim().replace(/^["']|["']$/g, "").trim();
+  return t || undefined;
+}
+
+function relayerKey(): string | undefined {
+  const k = clean(process.env.FACILITATOR_PRIVATE_KEY);
+  if (!k) return undefined;
+  return /^[0-9a-fA-F]{64}$/.test(k) ? `0x${k}` : k;
+}
+
+/**
+ * Which settings the server can see, without revealing any value. Shown in "not configured"
+ * errors so a wrong name or a bad paste on the hosting dashboard is easy to spot.
+ */
+export function configReport() {
+  const key = relayerKey();
+  return {
+    STORE_ADDRESS: storeConfig().payTo ? "ok" : process.env.STORE_ADDRESS ? "set but not an address" : "missing",
+    FACILITATOR_PRIVATE_KEY: !key ? "missing" : /^0x[0-9a-fA-F]{64}$/.test(key) ? "ok" : `set but not a 32-byte hex key (${key.length} characters)`,
+    FACILITATOR_API_KEY: clean(process.env.FACILITATOR_API_KEY) ? "ok" : "missing",
+    PAYWALL_SECRET: clean(process.env.PAYWALL_SECRET) ? "ok" : "missing",
+  };
+}
+
 export function storeConfig() {
-  const payTo = process.env.STORE_ADDRESS?.trim();
+  const payTo = clean(process.env.STORE_ADDRESS);
   return {
     payTo: payTo && isAddress(payTo) ? (payTo as Address) : undefined,
-    relayerKey: process.env.FACILITATOR_PRIVATE_KEY?.trim() || undefined,
-    facilitatorUrl: process.env.FACILITATOR_URL?.trim() || undefined,
-    apiKey: process.env.FACILITATOR_API_KEY?.trim() || undefined,
-    secret: process.env.PAYWALL_SECRET?.trim() || undefined,
+    relayerKey: relayerKey(),
+    facilitatorUrl: clean(process.env.FACILITATOR_URL),
+    apiKey: clean(process.env.FACILITATOR_API_KEY),
+    secret: clean(process.env.PAYWALL_SECRET),
   };
 }
 
