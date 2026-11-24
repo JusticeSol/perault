@@ -225,7 +225,7 @@ function Item({
       </button>
       {ready && tooLittle && (
         <span className="err">
-          Your wallet has {money(balance)} tUSD8. Money in your Perault vault is for your agents: take it out on the{" "}
+          Your wallet has {money(balance)} tUSD8. Money in your Perault vault is for your agents: withdraw it on the{" "}
           <a href="/dashboard">dashboard</a> to spend it yourself.
         </span>
       )}

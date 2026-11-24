@@ -3,6 +3,7 @@
 import { erc20Abi } from "@aevum-kit/aevum";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
+import { useState } from "react";
 import { useAccount, useReadContract } from "wagmi";
 import { OpenSessionCard } from "@/components/dashboard/OpenSessionCard";
 import { PaymentsFeed } from "@/components/dashboard/PaymentsFeed";
@@ -12,12 +13,16 @@ import { VaultCard } from "@/components/dashboard/VaultCard";
 import { useNetwork } from "@/lib/network";
 import { usePerault, useTx } from "@/lib/perault";
 
+/** Agents listed before the rest fold behind "Show more". Agents that are on are never folded. */
+const VISIBLE_AGENTS = 5;
+
 export default function DashboardPage() {
   const { net } = useNetwork();
   const { address, isConnected } = useAccount();
   const { reader, writer, vault } = usePerault();
   const queryClient = useQueryClient();
   const killAll = useTx();
+  const [showAll, setShowAll] = useState(false);
 
   const sessions = useQuery({
     queryKey: ["perault-sessions", net.chain.id, vault, address],
@@ -54,6 +59,10 @@ export default function DashboardPage() {
 
   const rows = sessions.data ?? [];
   const active = rows.filter((r) => sessionStatus(r) === "active");
+  // Agents that are on first, then ended ones; each group newest first.
+  const ended = rows.filter((r) => sessionStatus(r) !== "active");
+  const foldable = Math.max(0, ended.length - Math.max(0, VISIBLE_AGENTS - active.length));
+  const listed = [...active, ...(showAll ? ended : ended.slice(0, ended.length - foldable))];
   const committed = active.reduce((s, r) => s + r.budget.totalRemaining, 0n);
   const busy = killAll.state.status === "wallet" || killAll.state.status === "pending";
 
@@ -91,9 +100,16 @@ export default function DashboardPage() {
             {sessions.isLoading && <p className="empty">Reading your agents…</p>}
             {sessions.error && <p className="empty err">Couldn&apos;t read your agents: {(sessions.error as Error).message}</p>}
             {sessions.data && rows.length === 0 && <p className="empty">No agents yet. Give one a budget below.</p>}
-            {rows.map((r) => (
+            {listed.map((r) => (
               <SessionCard key={r.sessionId} row={r} onChange={refreshAll} />
             ))}
+            {foldable > 0 && (
+              <div className="show-more">
+                <button type="button" className="btn secondary small" aria-expanded={showAll} onClick={() => setShowAll((v) => !v)}>
+                  {showAll ? "Show fewer" : `Show ${foldable} more ended agent${foldable === 1 ? "" : "s"}`}
+                </button>
+              </div>
+            )}
             {active.length > 0 && (
               <div className="kill">
                 <span className="fine">Something wrong? Stop every agent in one transaction.</span>

@@ -40,7 +40,7 @@ people (paying from their wallet with one signature).
    [docs/STARTER-KIT.md](docs/STARTER-KIT.md#get-test-tokens)) and press **Buy for 1.00 tUSD8** on the
    socks. One signature, no gas: the site's facilitator settles it, and the order appears under
    **Recent orders** with its transaction.
-3. Open the **dashboard**: https://perault.vercel.app/dashboard. Add money to the vault and **give an
+3. Open the **dashboard**: https://perault.vercel.app/dashboard. Deposit into the vault and **give an
    agent a budget** (it can generate the agent's key for you). It then shows the config to paste
    into Claude.
 4. With the MCP server connected (see [Connect Claude](#connect-claude-as-the-agent)), ask Claude:

@@ -31,7 +31,7 @@ export function VaultCard({
       <div>
         <h2 id="vault-h">Vault</h2>
         <p className="sub" style={{ marginBottom: 0 }}>
-          Your agents spend from here, never from your wallet. Only you can take money out.
+          Your agents spend from here, never from your wallet. Only you can withdraw.
         </p>
       </div>
 
@@ -47,7 +47,7 @@ export function VaultCard({
 
       <div className="form">
         <label>
-          Add money
+          Deposit
           <div className="inline">
             <input
               className="field"
@@ -61,17 +61,18 @@ export function VaultCard({
               type="button"
               className="btn secondary small"
               disabled={!walletBalance}
+              aria-label="Deposit 100% of your wallet balance"
               onClick={() => walletBalance !== undefined && setDep(money(walletBalance).replace(/,/g, ""))}
             >
-              All of it
+              100%
             </button>
             <button
               type="button"
               className="btn small"
               disabled={!writer || !depAmount || depTooMuch || busy}
-              onClick={() => writer && depAmount && tx.run(`Add ${money(depAmount)} tUSD8`, () => writer.deposit(depAmount), () => { setDep(""); onChange(); })}
+              onClick={() => writer && depAmount && tx.run(`Deposit ${money(depAmount)} tUSD8`, () => writer.deposit(depAmount), () => { setDep(""); onChange(); })}
             >
-              Add money
+              Deposit
             </button>
           </div>
           <span className="hint">The first time, your wallet asks twice: once to allow the vault, once to move the money.</span>
@@ -79,7 +80,7 @@ export function VaultCard({
         </label>
 
         <label>
-          Take money out
+          Withdraw
           <div className="inline">
             <input
               className="field"
@@ -93,17 +94,18 @@ export function VaultCard({
               type="button"
               className="btn secondary small"
               disabled={!vaultBalance}
+              aria-label="Withdraw 100% of your vault balance"
               onClick={() => vaultBalance !== undefined && setWd(money(vaultBalance).replace(/,/g, ""))}
             >
-              All of it
+              100%
             </button>
             <button
               type="button"
               className="btn secondary small"
               disabled={!writer || !wdAmount || wdTooMuch || busy}
-              onClick={() => writer && wdAmount && tx.run(`Take out ${money(wdAmount)} tUSD8`, () => writer.withdraw(wdAmount), () => { setWd(""); onChange(); })}
+              onClick={() => writer && wdAmount && tx.run(`Withdraw ${money(wdAmount)} tUSD8`, () => writer.withdraw(wdAmount), () => { setWd(""); onChange(); })}
             >
-              Take out
+              Withdraw
             </button>
           </div>
           {wdTooMuch && <span className="err">That&apos;s more than the vault holds for you.</span>}

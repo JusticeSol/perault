@@ -84,8 +84,8 @@ export default function DocsPage() {
             <p>On the <a href="/dashboard">dashboard</a>, with the wallet that holds your tUSD8:</p>
             <ol>
               <li>
-                <strong>Add money</strong> to the vault. The first time, your wallet asks twice: once to allow the vault, once to move the money.
-                The vault money is still yours; take it out whenever you like.
+                <strong>Deposit</strong> into the vault. The first time, your wallet asks twice: once to allow the vault, once to move the money.
+                The vault money is still yours; withdraw it whenever you like.
               </li>
               <li>
                 <strong>Give an agent a budget.</strong> Enter the agent&apos;s address, or press <em>Generate new agent key</em> and the site makes
@@ -255,7 +255,7 @@ budgetOf(sessionId) · getSession(sessionId) · receiptOf(merchant, orderId)
               <li><strong>A tricked agent</strong> (&ldquo;pay this address instead&rdquo;) is refused twice: by the agent software before it signs, and by the contract.</li>
               <li><strong>Runaway spending</strong> stops at the per-payment, daily and total limits, enforced on-chain.</li>
               <li><strong>Repeated payments</strong> never charge twice: every signed payment and every order can be used once.</li>
-              <li><strong>Your own money</strong> stays yours: nobody but you can take money out of your part of the vault, and there is no admin key.</li>
+              <li><strong>Your own money</strong> stays yours: nobody but you can withdraw from your part of the vault, and there is no admin key.</li>
             </ul>
           </section>
 
@@ -270,7 +270,7 @@ budgetOf(sessionId) · getSession(sessionId) · receiptOf(merchant, orderId)
                 off. For different limits, give the agent a new budget.
               </dd>
               <dt>What happens when a budget ends?</dt>
-              <dd>The agent can&apos;t pay anything more. Unspent money stays in the vault for other budgets, or for you to take out.</dd>
+              <dd>The agent can&apos;t pay anything more. Unspent money stays in the vault for other budgets, or for you to withdraw.</dd>
               <dt>Why does &ldquo;Spendable now&rdquo; show less than the budget?</dt>
               <dd>It&apos;s the smallest of: the per-payment limit, what&apos;s left today, what&apos;s left in total, and what&apos;s in the vault.</dd>
               <dt>Is this real money?</dt>

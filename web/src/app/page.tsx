@@ -48,7 +48,7 @@ export default function Home() {
         <ol className="how">
           <li>
             <h3>Fill the vault</h3>
-            <p>Put tUSD8 in your vault. It stays yours, and only you can take it out.</p>
+            <p>Put tUSD8 in your vault. It stays yours, and only you can withdraw it.</p>
           </li>
           <li>
             <h3>Give an agent a budget</h3>
