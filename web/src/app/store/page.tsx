@@ -7,6 +7,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { useAccount, useReadContract, useWalletClient } from "wagmi";
 import { CopyButton, TxLink, money, short } from "@/components/dashboard/shared";
+import Image from "next/image";
 import { Garment } from "@/components/Garment";
 import { CATALOG, STORE_NAME, type Product } from "@/lib/catalog";
 import { useNetwork } from "@/lib/network";
@@ -196,8 +197,20 @@ function Item({
 
   return (
     <article className="item">
-      <div className="garment" style={{ background: p.swatch[0] }} role="img" aria-label={p.name}>
-        <Garment sku={p.sku} color={p.swatch[1]} />
+      <div className="garment" style={{ background: p.image ? "#f4f4f2" : p.swatch[0] }}>
+        {p.image ? (
+          <Image
+            src={p.image}
+            alt={p.name}
+            fill
+            sizes="(max-width: 420px) 100vw, (max-width: 960px) 50vw, 280px"
+            style={{ objectFit: "cover", objectPosition: p.imageFocus ?? "center" }}
+          />
+        ) : (
+          <span role="img" aria-label={p.name}>
+            <Garment sku={p.sku} color={p.swatch[1]} />
+          </span>
+        )}
         <span className="woven">{money(p.price)} tUSD8</span>
         {p.tag && <span className="garment-note">{p.tag}</span>}
       </div>

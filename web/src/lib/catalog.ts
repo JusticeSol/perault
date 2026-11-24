@@ -9,8 +9,12 @@ export interface Product {
   blurb: string;
   /** Base units: 3_500_000n = 3.50 tUSD8. */
   price: bigint;
-  /** [background, garment colour] for the product panel (no image assets needed). */
+  /** [background, garment colour] for the drawn silhouette, used when there is no photo. */
   swatch: [string, string];
+  /** Product photo in web/public, e.g. "/products/hoodie-black.webp". Fills the panel (cropped to 4:5). */
+  image?: string;
+  /** Which part of the photo to keep when it is cropped, as CSS object-position. Default "center". */
+  imageFocus?: string;
   tag?: string;
 }
 
@@ -19,6 +23,7 @@ export const STORE_NAME = process.env.NEXT_PUBLIC_STORE_NAME?.trim() || "Demo La
 export const CATALOG: Product[] = [
   {
     sku: "hoodie-black-M",
+    image: "/products/hoodie-black.webp",
     name: "Heavyweight hoodie, black, M",
     blurb: "450 gsm brushed cotton, dropped shoulder, kangaroo pocket.",
     price: 3_500_000n,
@@ -27,6 +32,7 @@ export const CATALOG: Product[] = [
   },
   {
     sku: "tee-white-L",
+    image: "/products/tee-white.jpg",
     name: "Boxy tee, off-white, L",
     blurb: "220 gsm combed cotton, ribbed collar, relaxed fit.",
     price: 2_000_000n,
@@ -34,6 +40,8 @@ export const CATALOG: Product[] = [
   },
   {
     sku: "socks-white",
+    image: "/products/socks-white.jpg",
+    imageFocus: "center bottom",
     name: "Crew socks, white",
     blurb: "Cushioned sole, reinforced heel and toe. One size.",
     price: 1_000_000n,
@@ -41,6 +49,7 @@ export const CATALOG: Product[] = [
   },
   {
     sku: "jacket-denim-L",
+    image: "/products/jacket-denim.jpg",
     name: "Selvedge denim jacket, L",
     blurb: "14 oz raw selvedge denim, copper buttons, boxy cut.",
     price: 6_000_000n,
