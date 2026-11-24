@@ -203,7 +203,9 @@ function Item({
             src={p.image}
             alt={p.name}
             fill
-            sizes="(max-width: 420px) 100vw, (max-width: 960px) 50vw, 280px"
+            // Served as-is: the photos are already small (under 25 KB), and this skips Vercel's image
+            // optimisation, whose free quota can run out (it then answers 402 and the photo is blank).
+            unoptimized
             style={{ objectFit: "cover", objectPosition: p.imageFocus ?? "center" }}
           />
         ) : (
